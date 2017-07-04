@@ -24,4 +24,14 @@ else()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DEIGEN -Wno-deprecated-declarations ")    
   include_directories($ENV{EIGEN_INCLUDE_DIR})
 endif ()
+
+# GMM
+if (NOT DEFINED ENV{GMM_INCLUDE_DIR})
+  message(WARNING "GMM++ not found and will not be used")
+else()
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGMM ")    
+  include_directories($ENV{GMM_INCLUDE_DIR})
+endif ()
+
+   
    

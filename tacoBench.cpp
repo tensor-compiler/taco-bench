@@ -82,7 +82,19 @@ static void readMatrixSize(string filename, int& rows, int& cols)
   typedef Eigen::SparseMatrix<double> EigenSparseMatrix;
 #endif
 
+#ifdef GMM
+  #include "gmm/gmm.h"
+  typedef gmm::csc_matrix<double> GmmSparse;
+  typedef gmm::col_matrix< gmm::wsvector<double> > GmmDynSparse;
+#endif
+
 enum BenchExpr {SpMV};
+
+void Validate (string name, const Tensor<double>& Dst, const Tensor<double>& Ref) {
+  if (!equals (Dst, Ref)) {
+    cout << "\033[1;31m  Validation Error with " << name << " \033[0m" << endl;
+  }
+}
 
 int main(int argc, char* argv[]) {
 
@@ -164,9 +176,7 @@ int main(int argc, char* argv[]) {
         TACO_BENCH(y.assemble();,"Assemble",1,timevalue,false)
         TACO_BENCH(y.compute();, "Compute",repeat, timevalue, true)
 
-        if (!equals(y,yRef)) {
-          cout << "Validation Error with taco " <<  endl;
-        }
+        Validate("taco", y, yRef);
       }
 
 #ifdef EIGEN
@@ -194,10 +204,47 @@ int main(int argc, char* argv[]) {
       }
       y_Eigen.pack();
 
-      if (!equals(y_Eigen,yRef)) {
-        cout << "Validation Error with Eigen " <<  endl;
-      }
+      Validate("Eigen", y_Eigen, yRef);
 #endif
+
+#ifdef GMM
+      GmmSparse Agmm(rows,cols);
+
+      GmmDynSparse tmp(rows, cols);
+      for (auto& value : iterate<double>(A)) {
+        tmp(value.first.at(0),value.first.at(1)) = value.second;
+      }
+      gmm::copy(tmp, Agmm);
+
+      std::vector<double> xgmm(cols), ygmm(rows);
+      int s=0;
+      for (auto& value : iterate<double>(x)) {
+        xgmm[s++] = value.second;
+      }
+
+      TACO_BENCH(gmm::mult(Agmm, xgmm, ygmm);,"GMM",repeat,timevalue,true);
+
+      Tensor<double> y_gmm({rows}, Dense);
+      for (int i=0; i<rows; ++i) {
+        y_gmm.insert({i}, ygmm[i]);
+      }
+      y_gmm.pack();
+
+      Validate("GMM++", y_gmm, yRef);
+#endif
+
+#ifdef UBLAS
+#endif
+
+#ifdef MKL
+#endif
+
+#ifdef OSKI
+#endif
+
+#ifdef POSKI
+#endif
+
 
       break;
     }
