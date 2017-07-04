@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8)
 project(tacoBench)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -std=c++11")
 file(GLOB SOURCE_CODE ${PROJECT_SOURCE_DIR}/*.cpp)
 add_executable(${PROJECT_NAME} ${SOURCE_CODE})
 
@@ -21,7 +21,7 @@ include_directories(${TACO_INCLUDE_DIR})
 if (NOT DEFINED ENV{EIGEN_INCLUDE_DIR})
   message(WARNING "Eigen not found and will not be used")
 else()
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DEIGEN ")    
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DEIGEN -Wno-deprecated-declarations ")    
   include_directories($ENV{EIGEN_INCLUDE_DIR})
 endif ()
    

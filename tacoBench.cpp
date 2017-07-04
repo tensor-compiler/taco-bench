@@ -78,11 +78,16 @@ static void readMatrixSize(string filename, int& rows, int& cols)
 
 #ifdef EIGEN
   #include <Eigen/Sparse>
+  typedef Eigen::Matrix<double,Eigen::Dynamic,1> DenseVector;
+  typedef Eigen::SparseMatrix<double> EigenSparseMatrix;
 #endif
+
+enum BenchExpr {SpMV};
 
 int main(int argc, char* argv[]) {
 
   int Expression=1;
+  BenchExpr Expr;
   int repeat=1;
   map<string,string> inputFilenames;
   taco::util::TimeResults timevalue;
@@ -102,6 +107,8 @@ int main(int argc, char* argv[]) {
     if ("-E" == argName) {
       try {
         Expression=stoi(argValue);
+        if (Expression==1)
+          Expr=SpMV;
       }
       catch (...) {
         return reportError("Expression descriptor", 3);
@@ -131,40 +138,72 @@ int main(int argc, char* argv[]) {
   TacoFormats.insert({"CSR",CSR});
   TacoFormats.insert({"CSC",CSC});
   TacoFormats.insert({"Sparse,Sparse",Format({Sparse,Sparse})});
-  int rows,cols;
-  readMatrixSize(inputFilenames.at("A"),rows,cols);
 
-  switch(Expression) {
-    case 1: {
+  switch(Expr) {
+    case SpMV: {
+      int rows,cols;
+      readMatrixSize(inputFilenames.at("A"),rows,cols);
       Tensor<double> x({cols}, Dense);
       util::fillTensor(x,util::FillMethod::Dense);
+      Tensor<double> yRef({rows}, Dense);
+      Tensor<double> A=read(inputFilenames.at("A"),CSC,true);
+      IndexVar i, j;
+      yRef(i) = A(i,j) * x(j);
+      yRef.compile();
+      yRef.assemble();
+      yRef.compute();
+
       for (auto& formats:TacoFormats) {
         cout << "y(i) = A(i,j)*x(j) -- " << formats.first <<endl;
-        IndexVar i, j;
-        Tensor<double> A=read(inputFilenames.at("A"),formats.second,true);
-        Tensor<double> y({A.getDimension(0)}, Dense);
+        A=read(inputFilenames.at("A"),formats.second,true);
+        Tensor<double> y({rows}, Dense);
 
         y(i) = A(i,j) * x(j);
 
         TACO_BENCH(y.compile();, "Compile",1,timevalue,false)
         TACO_BENCH(y.assemble();,"Assemble",1,timevalue,false)
         TACO_BENCH(y.compute();, "Compute",repeat, timevalue, true)
+
+        if (!equals(y,yRef)) {
+          cout << "Validation Error with taco " <<  endl;
+        }
       }
+
+#ifdef EIGEN
+      DenseVector xEigen(cols);
+      DenseVector yEigen(rows);
+      EigenSparseMatrix AEigen(rows,cols);
+
+      int r=0;
+      for (auto& value : iterate<double>(x)) {
+        xEigen(r++) = value.second;
+      }
+
+      std::vector< Eigen::Triplet<double> > tripletList;
+      tripletList.reserve(A.getStorage().getValues().getSize());
+      for (auto& value : iterate<double>(A)) {
+        tripletList.push_back({value.first.at(0),value.first.at(1),value.second});
+      }
+      AEigen.setFromTriplets(tripletList.begin(), tripletList.end());
+
+      TACO_BENCH(yEigen.noalias() = AEigen * xEigen;,"Eigen",repeat,timevalue,true);
+
+      Tensor<double> y_Eigen({rows}, Dense);
+      for (int i=0; i<rows; ++i) {
+        y_Eigen.insert({i}, yEigen(i));
+      }
+      y_Eigen.pack();
+
+      if (!equals(y_Eigen,yRef)) {
+        cout << "Validation Error with Eigen " <<  endl;
+      }
+#endif
+
       break;
     }
     default: {
       return reportError("Unknown Expression", 3);
     }
   }
-
-  // Eigen
-#ifdef EIGEN
-  typedef Eigen::Matrix<double,Eigen::Dynamic,1> DenseVector;
-  DenseVector xEigen(cols);
-//  xEigen.set
-  //  yEigen = eigenBench.expression1(A,x);
-  //  taco::equals(yEigen,yTaco);
-#endif
-
 }
 
