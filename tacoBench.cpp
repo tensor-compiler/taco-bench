@@ -77,15 +77,22 @@ static void readMatrixSize(string filename, int& rows, int& cols)
 }
 
 #ifdef EIGEN
-  #include <Eigen/Sparse>
-  typedef Eigen::Matrix<double,Eigen::Dynamic,1> DenseVector;
-  typedef Eigen::SparseMatrix<double> EigenSparseMatrix;
+#include <Eigen/Sparse>
+typedef Eigen::Matrix<double,Eigen::Dynamic,1> DenseVector;
+typedef Eigen::SparseMatrix<double> EigenSparseMatrix;
 #endif
 
 #ifdef GMM
-  #include "gmm/gmm.h"
-  typedef gmm::csc_matrix<double> GmmSparse;
-  typedef gmm::col_matrix< gmm::wsvector<double> > GmmDynSparse;
+#include "gmm/gmm.h"
+typedef gmm::csc_matrix<double> GmmSparse;
+typedef gmm::col_matrix< gmm::wsvector<double> > GmmDynSparse;
+#endif
+
+#ifdef UBLAS
+#include <boost/numeric/ublas/vector.hpp>
+#include <boost/numeric/ublas/matrix_sparse.hpp>
+#include <boost/numeric/ublas/operation.hpp>
+typedef boost::numeric::ublas::compressed_matrix<double,boost::numeric::ublas::column_major> UBlasSparse;
 #endif
 
 enum BenchExpr {SpMV};
@@ -148,8 +155,8 @@ int main(int argc, char* argv[]) {
   // taco expression
   map<string,Format> TacoFormats;
   TacoFormats.insert({"CSR",CSR});
-  TacoFormats.insert({"CSC",CSC});
   TacoFormats.insert({"Sparse,Sparse",Format({Sparse,Sparse})});
+  TacoFormats.insert({"CSC",CSC});
 
   switch(Expr) {
     case SpMV: {
@@ -178,6 +185,7 @@ int main(int argc, char* argv[]) {
 
         Validate("taco", y, yRef);
       }
+      A=read(inputFilenames.at("A"),CSC,true);
 
 #ifdef EIGEN
       DenseVector xEigen(cols);
@@ -234,6 +242,27 @@ int main(int argc, char* argv[]) {
 #endif
 
 #ifdef UBLAS
+      UBlasSparse Aublas(rows,cols);
+
+      for (auto& value : iterate<double>(A)) {
+        Aublas(value.first.at(0),value.first.at(1)) = value.second;
+      }
+
+      boost::numeric::ublas::vector<double> xublas(cols), yublas(rows);
+      int t=0;
+      for (auto& value : iterate<double>(x)) {
+        xublas[t++] = value.second;
+      }
+
+      TACO_BENCH(boost::numeric::ublas::axpy_prod(Aublas, xublas, yublas, true);,"UBLAS",repeat,timevalue,true);
+
+      Tensor<double> y_ublas({rows}, Dense);
+      for (int i=0; i<rows; ++i) {
+        y_ublas.insert({i}, yublas[i]);
+      }
+      y_ublas.pack();
+
+      Validate("UBLAS", y_ublas, yRef);
 #endif
 
 #ifdef MKL
