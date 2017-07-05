@@ -95,6 +95,12 @@ typedef gmm::col_matrix< gmm::wsvector<double> > GmmDynSparse;
 typedef boost::numeric::ublas::compressed_matrix<double,boost::numeric::ublas::column_major> UBlasSparse;
 #endif
 
+#ifdef OSKI
+extern "C" {
+#include <oski/oski.h>
+}
+#endif
+
 enum BenchExpr {SpMV};
 
 void Validate (string name, const Tensor<double>& Dst, const Tensor<double>& Ref) {
@@ -265,13 +271,87 @@ int main(int argc, char* argv[]) {
       Validate("UBLAS", y_ublas, yRef);
 #endif
 
-#ifdef MKL
-#endif
-
 #ifdef OSKI
+      oski_matrix_t Aoski;
+      oski_vecview_t xoski, yoski;
+      oski_Init();
+      // TODO use getCSCArrays method
+      //      int** colptr;
+      //      int** rowidx;
+      //      double** vals;
+      //      getCSCArrays(A,colptr,rowidx,vals);
+      Aoski = oski_CreateMatCSC((int*)(A.getStorage().getIndex().getDimensionIndex(1).getIndexArray(0).getData()),
+                                (int*)(A.getStorage().getIndex().getDimensionIndex(1).getIndexArray(1).getData()),
+                                (double*)(A.getStorage().getValues().getData()),
+                                rows, cols,
+                                SHARE_INPUTMAT, 1, INDEX_ZERO_BASED);
+      xoski = oski_CreateVecView((double*)(x.getStorage().getValues().getData()), cols, STRIDE_UNIT);
+      Tensor<double> y_oski({rows}, Dense);
+      y_oski.pack();
+      yoski = oski_CreateVecView((double*)(y_oski.getStorage().getValues().getData()), rows, STRIDE_UNIT);
+
+      TACO_BENCH( oski_MatMult(Aoski, OP_NORMAL, 1, xoski, 0, yoski);,"OSKI",repeat,timevalue,true );
+
+      Validate("OSKI", y_oski, yRef);
+
+      // Tuned version
+      oski_SetHintMatMult(Aoski, OP_NORMAL, 1.0, SYMBOLIC_VEC, 0.0, SYMBOLIC_VEC, ALWAYS_TUNE_AGGRESSIVELY);
+      oski_TuneMat(Aoski);
+      char* xform = oski_GetMatTransforms (Aoski);
+      int blockSize=0;
+      if (xform) {
+        fprintf (stdout, "\tDid tune: '%s'\n", xform);
+        std::string oskiTune(xform);
+        std::string oskiBegin=oskiTune.substr(oskiTune.find(",")+2);
+        std::string oskiXSize=oskiBegin.substr(0,oskiBegin.find(","));
+        int XOski=atoi(oskiXSize.c_str());
+        if (XOski!=0)
+          blockSize = XOski;
+        oski_Free (xform);
+      }
+
+      TACO_BENCH(oski_MatMult(Aoski, OP_NORMAL, 1, xoski, 0, yoski);,"OSKI Tuned",repeat,timevalue,true);
+
+      Validate("OSKI Tuned", y_oski, yRef);
+
+      oski_DestroyMat(Aoski);
+      oski_DestroyVecView(xoski);
+      oski_DestroyVecView(yoski);
+      oski_Close();
+
+      // Taco block version with oski tuned number
+      if (blockSize>0) {
+        cout << "y(i,ib) = A(i,j,ib,jb)*x(j,jb) -- DSDD " <<endl;
+
+        IndexVar ib,jb;
+        Tensor<double> yb({rows/blockSize,blockSize}, Format({Dense,Dense}));
+        Tensor<double> xb({cols/blockSize,blockSize}, Format({Dense,Dense}));
+        Tensor<double> Ab({rows/blockSize,cols/blockSize,blockSize,blockSize}, Format({Dense,Sparse,Dense,Dense}));
+
+        int i_b=0;
+        for (auto& value : iterate<double>(x)) {
+          xb.insert({value.first.at(0)/blockSize,value.first.at(0)%blockSize},value.second);
+          i_b++;
+        }
+        xb.pack();
+        for (auto& value : iterate<double>(A)) {
+          Ab.insert({value.first.at(0)/blockSize,value.first.at(1)/blockSize,value.first.at(0)%blockSize,value.first.at(1)%blockSize}, value.second);
+        }
+        Ab.pack();
+
+        yb(i,ib) = Ab(i,j,ib,jb) * xb(j,jb);
+
+        TACO_BENCH(yb.compile();, "Compile",1,timevalue,false)
+        TACO_BENCH(yb.assemble();,"Assemble",1,timevalue,false)
+        TACO_BENCH(yb.compute();, "Compute",repeat, timevalue, true)
+      }
 #endif
 
 #ifdef POSKI
+#endif
+
+
+#ifdef MKL
 #endif
 
 

@@ -21,7 +21,7 @@ include_directories(${TACO_INCLUDE_DIR})
 if (NOT DEFINED ENV{EIGEN_INCLUDE_DIR})
   message(WARNING "Eigen not found and will not be used")
 else()
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DEIGEN -Wno-deprecated-declarations ")    
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DEIGEN -Wno-deprecated-declarations")    
   include_directories($ENV{EIGEN_INCLUDE_DIR})
 endif ()
 
@@ -41,4 +41,19 @@ else()
   include_directories($ENV{UBLAS_INCLUDE_DIR})
 endif ()
    
+# OSKI
+if ((NOT DEFINED ENV{OSKI_INCLUDE_DIR}) OR (NOT DEFINED ENV{OSKI_LIBRARY_DIR}))
+  message(WARNING "OSKI not found and will not be used")
+else()
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DOSKI ")    
+  include_directories($ENV{OSKI_INCLUDE_DIR})
+  set(OSKI_LIBRARY_DIR $ENV{OSKI_LIBRARY_DIR})
+  set(OSKI_INCLUDE_DIR $ENV{OSKI_INCLUDE_DIR})
+  set(OSKI_MOD_COMMAND "cat $ENV{OSKI_LIBRARY_DIR}/site-modules-shared.txt | sed ':a\;N\;$!ba\;s/\\n/ /g'  ")
+  execute_process(COMMAND ${OSKI_MOD_COMMAND} OUTPUT_VARIABLE OSKI_MODULES)
+  target_link_libraries(${PROJECT_NAME} "-L${OSKI_LIBRARY_DIR} -loski -loskilt -loski_Tid -loski_mat_CSR_Tid -loski_mat_CSC_Tid -loski_mat_BCSR_Tid -loski_mat_MBCSR_Tid -loski_mat_GCSR_Tid -loski_mat_CB_Tid -loski_mat_VBR_Tid -loski_mat_DENSE_Tid -loski_heur_regprof_Tid -loski_heur_symmrb_Tid -loski_heur_mregblock_Tid")
+# TODO try to use the module variable
+#  target_link_libraries(${PROJECT_NAME} "-L${OSKI_LIBRARY_DIR} ${OSKI_MODULES}")
+endif ()
+
    
