@@ -116,6 +116,13 @@ int main(int argc, char* argv[]) {
   int repeat=1;
   map<string,string> inputFilenames;
   taco::util::TimeResults timevalue;
+  map<string,bool> products;
+  products.insert({"eigen",true});
+  products.insert({"gmm",true});
+  products.insert({"ublas",true});
+  products.insert({"oski",true});
+  products.insert({"poski",true});
+  products.insert({"mkl",true});
 
   // Read Parameters
   for (int i = 1; i < argc; i++) {
@@ -147,6 +154,18 @@ int main(int argc, char* argv[]) {
       string tensorName = descriptor[0];
       string fileName  = descriptor[1];
       inputFilenames.insert({tensorName,fileName});
+    }
+    else if ("-p" == argName) {
+      vector<string> descriptor = util::split(argValue, ",");
+      if (descriptor.size() >= products.size()) {
+        return reportError("Incorrect -p usage", 4);
+      }
+      for (auto &product : products ) {
+        product.second=false;
+      }
+      for(int i=0; i<descriptor.size();i++) {
+        products.at(descriptor[i])=true;
+      }
     }
     if ("-r" == argName) {
       try {
@@ -194,6 +213,7 @@ int main(int argc, char* argv[]) {
       A=read(inputFilenames.at("A"),CSC,true);
 
 #ifdef EIGEN
+  if (products.at("eigen")) {
       DenseVector xEigen(cols);
       DenseVector yEigen(rows);
       EigenSparseMatrix AEigen(rows,cols);
@@ -219,9 +239,15 @@ int main(int argc, char* argv[]) {
       y_Eigen.pack();
 
       Validate("Eigen", y_Eigen, yRef);
+  }
+#else
+  if (products.at("eigen")) {
+    return reportError("Cannot use EIGEN", 3);
+  }
 #endif
 
 #ifdef GMM
+  if (products.at("gmm")) {
       GmmSparse Agmm(rows,cols);
 
       GmmDynSparse tmp(rows, cols);
@@ -245,9 +271,15 @@ int main(int argc, char* argv[]) {
       y_gmm.pack();
 
       Validate("GMM++", y_gmm, yRef);
+  }
+#else
+  if (products.at("gmm")) {
+    return reportError("Cannot use GMM++", 3);
+  }
 #endif
 
 #ifdef UBLAS
+  if (products.at("ublas")) {
       UBlasSparse Aublas(rows,cols);
 
       for (auto& value : iterate<double>(A)) {
@@ -269,9 +301,15 @@ int main(int argc, char* argv[]) {
       y_ublas.pack();
 
       Validate("UBLAS", y_ublas, yRef);
+  }
+#else
+  if (products.at("ublas")) {
+    return reportError("Cannot use UBLAS", 3);
+  }
 #endif
 
 #ifdef OSKI
+  if (products.at("oski")) {
       oski_matrix_t Aoski;
       oski_vecview_t xoski, yoski;
       oski_Init();
@@ -345,13 +383,29 @@ int main(int argc, char* argv[]) {
         TACO_BENCH(yb.assemble();,"Assemble",1,timevalue,false)
         TACO_BENCH(yb.compute();, "Compute",repeat, timevalue, true)
       }
+  }
+#else
+  if (products.at("oski")) {
+    return reportError("Cannot use OSKI", 3);
+  }
 #endif
 
 #ifdef POSKI
+  if (products.at("oski")) {
+  }
+#else
+  if (products.at("poski")) {
+    return reportError("Cannot use POSKI", 3);
+  }
 #endif
 
-
 #ifdef MKL
+  if (products.at("mkl")) {
+  }
+#else
+  if (products.at("mkl")) {
+    return reportError("Cannot use MKL", 3);
+  }
 #endif
 
 
