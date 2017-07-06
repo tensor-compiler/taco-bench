@@ -12,6 +12,7 @@
 using namespace taco;
 using namespace std;
 
+// MACRO to benchmark some CODE with REPEAT times and COLD/WARM cache
 #define TACO_BENCH(CODE, NAME, REPEAT, TIMER, COLD) {           \
     TACO_TIME_REPEAT(CODE, REPEAT, TIMER, COLD);                \
     cout << NAME << " time (ms)" << endl << TIMER << endl;      \
@@ -21,7 +22,7 @@ static void printFlag(string flag, string text) {
   const size_t descriptionStart = 30;
   const size_t columnEnd        = 80;
   string flagString = "  -" + flag +
-      util::repeat(" ",descriptionStart-(flag.size()+3));
+                      util::repeat(" ",descriptionStart-(flag.size()+3));
   cout << flagString;
   size_t column = flagString.size();
   vector<string> words = util::split(text, " ");
@@ -37,7 +38,27 @@ static void printFlag(string flag, string text) {
 }
 
 static void printUsageInfo() {
-  cout << "Usage: taco <index expression> [options]" << endl;
+  cout << "Usage: tacoBench [options]" << endl;
+  cout << endl;
+  cout << "Examples:" << endl;
+  cout << "  tacoBench -E=1 -r=10 -p=eigen,ublas  -i=A:/tmp/consph.mtx" << endl;
+  cout << "Options:" << endl;
+  printFlag("E=<expressionId>",
+            "Specify the expression Id to benchmark from: "
+            "   1 : SpMV y(i)=A(i,j)*x(j) ");
+  cout << endl;
+  printFlag("r=<repeat>",
+            "Time compilation, assembly and <repeat> times computation "
+            "(defaults to 1).");
+  cout << endl;
+  printFlag("i=<tensor>:<filename>",
+            "Read a tensor from a .mtx file.");
+  cout << endl;
+  printFlag("p=<product>,<products>",
+            "Specify a list of products to use from: "
+            "eigen, gmm, ublas, oski, poski, mkl."
+            "(not specified launches all products");
+  cout << endl;
 }
 
 static int reportError(string errorMessage, int errorCode) {
@@ -46,17 +67,7 @@ static int reportError(string errorMessage, int errorCode) {
   return errorCode;
 }
 
-static void printCommandLine(ostream& os, int argc, char* argv[]) {
-  taco_iassert(argc > 0);
-  os << argv[0];
-  if (argc > 1) {
-    os << " \"" << argv[1] << "\"";
-  }
-  for (int i = 2; i < argc; i++) {
-    os << " " << argv[i];
-  }
-}
-
+// Get MatrixSize from a .mtx file
 static void readMatrixSize(string filename, int& rows, int& cols)
 {
   fstream file;
@@ -76,6 +87,14 @@ static void readMatrixSize(string filename, int& rows, int& cols)
   file.close();
 }
 
+// Compare two tensors
+void validate (string name, const Tensor<double>& Dst, const Tensor<double>& Ref) {
+  if (!equals (Dst, Ref)) {
+    cout << "\033[1;31m  Validation Error with " << name << " \033[0m" << endl;
+  }
+}
+
+// Includes for all the products
 #ifdef EIGEN
 #include <Eigen/Sparse>
 typedef Eigen::Matrix<double,Eigen::Dynamic,1> DenseVector;
@@ -111,13 +130,8 @@ extern "C" {
   #include "mkl_spblas.h"
 #endif
 
+// Enum of possible expressions to Benchmark
 enum BenchExpr {SpMV};
-
-void Validate (string name, const Tensor<double>& Dst, const Tensor<double>& Ref) {
-  if (!equals (Dst, Ref)) {
-    cout << "\033[1;31m  Validation Error with " << name << " \033[0m" << endl;
-  }
-}
 
 int main(int argc, char* argv[]) {
 
@@ -133,6 +147,9 @@ int main(int argc, char* argv[]) {
   products.insert({"oski",true});
   products.insert({"poski",true});
   products.insert({"mkl",true});
+
+  if (argc < 2)
+    return reportError("no arguments", 3);
 
   // Read Parameters
   for (int i = 1; i < argc; i++) {
@@ -153,7 +170,7 @@ int main(int argc, char* argv[]) {
           Expr=SpMV;
       }
       catch (...) {
-        return reportError("Expression descriptor", 3);
+        return reportError("Incorrect Expression descriptor", 3);
       }
     }
     else if ("-i" == argName) {
@@ -168,7 +185,7 @@ int main(int argc, char* argv[]) {
     else if ("-p" == argName) {
       vector<string> descriptor = util::split(argValue, ",");
       if (descriptor.size() > products.size()) {
-        return reportError("Incorrect -p usage", 4);
+        return reportError("Incorrect -p usage", 3);
       }
       for (auto &product : products ) {
         product.second=false;
@@ -182,7 +199,7 @@ int main(int argc, char* argv[]) {
         repeat=stoi(argValue);
       }
       catch (...) {
-        return reportError("repeat descriptor", 3);
+        return reportError("Incorrect repeat descriptor", 3);
       }
     }
   }
@@ -218,9 +235,14 @@ int main(int argc, char* argv[]) {
         TACO_BENCH(y.assemble();,"Assemble",1,timevalue,false)
         TACO_BENCH(y.compute();, "Compute",repeat, timevalue, true)
 
-        Validate("taco", y, yRef);
+        validate("taco", y, yRef);
       }
+      // get CSC arrays for other products
       A=read(inputFilenames.at("A"),CSC,true);
+      double *a_CSC;
+      int* ia_CSC;
+      int* ja_CSC;
+      getCSCArrays(A,&ia_CSC,&ja_CSC,&a_CSC);
 
 #ifdef EIGEN
   if (products.at("eigen")) {
@@ -248,7 +270,7 @@ int main(int argc, char* argv[]) {
       }
       y_Eigen.pack();
 
-      Validate("Eigen", y_Eigen, yRef);
+      validate("Eigen", y_Eigen, yRef);
   }
 #else
   if (products.at("eigen")) {
@@ -280,7 +302,7 @@ int main(int argc, char* argv[]) {
       }
       y_gmm.pack();
 
-      Validate("GMM++", y_gmm, yRef);
+      validate("GMM++", y_gmm, yRef);
   }
 #else
   if (products.at("gmm")) {
@@ -310,7 +332,7 @@ int main(int argc, char* argv[]) {
       }
       y_ublas.pack();
 
-      Validate("UBLAS", y_ublas, yRef);
+      validate("UBLAS", y_ublas, yRef);
   }
 #else
   if (products.at("ublas")) {
@@ -323,24 +345,18 @@ int main(int argc, char* argv[]) {
       oski_matrix_t Aoski;
       oski_vecview_t xoski, yoski;
       oski_Init();
-      // TODO use getCSCArrays method
-      //      int** colptr;
-      //      int** rowidx;
-      //      double** vals;
-      //      getCSCArrays(A,colptr,rowidx,vals);
-      Aoski = oski_CreateMatCSC((int*)(A.getStorage().getIndex().getDimensionIndex(1).getIndexArray(0).getData()),
-                                (int*)(A.getStorage().getIndex().getDimensionIndex(1).getIndexArray(1).getData()),
-                                (double*)(A.getStorage().getValues().getData()),
-                                rows, cols,
-                                SHARE_INPUTMAT, 1, INDEX_ZERO_BASED);
-      xoski = oski_CreateVecView((double*)(x.getStorage().getValues().getData()), cols, STRIDE_UNIT);
+      Aoski = oski_CreateMatCSC(ia_CSC,ja_CSC,a_CSC,
+                                rows, cols, SHARE_INPUTMAT, 1, INDEX_ZERO_BASED);
+      xoski = oski_CreateVecView((double*)(x.getStorage().getValues().getData()),
+                                 cols, STRIDE_UNIT);
       Tensor<double> y_oski({rows}, Dense);
       y_oski.pack();
-      yoski = oski_CreateVecView((double*)(y_oski.getStorage().getValues().getData()), rows, STRIDE_UNIT);
+      yoski = oski_CreateVecView((double*)(y_oski.getStorage().getValues().getData()),
+                                 rows, STRIDE_UNIT);
 
       TACO_BENCH( oski_MatMult(Aoski, OP_NORMAL, 1, xoski, 0, yoski);,"OSKI",repeat,timevalue,true );
 
-      Validate("OSKI", y_oski, yRef);
+      validate("OSKI", y_oski, yRef);
 
       // Tuned version
       oski_SetHintMatMult(Aoski, OP_NORMAL, 1.0, SYMBOLIC_VEC, 0.0, SYMBOLIC_VEC, ALWAYS_TUNE_AGGRESSIVELY);
@@ -360,7 +376,7 @@ int main(int argc, char* argv[]) {
 
       TACO_BENCH(oski_MatMult(Aoski, OP_NORMAL, 1, xoski, 0, yoski);,"OSKI Tuned",repeat,timevalue,true);
 
-      Validate("OSKI Tuned", y_oski, yRef);
+      validate("OSKI Tuned", y_oski, yRef);
 
       // commented to avoid some crashes with poski
 //      oski_DestroyMat(Aoski);
@@ -445,7 +461,7 @@ int main(int argc, char* argv[]) {
 
     TACO_BENCH(poski_MatMult(A_tunable, OP_NORMAL, 1, xposki_view, 0, yposki_view);,"POSKI",repeat,timevalue,true)
 
-    Validate("POSKI", y_poski, yRef);
+    validate("POSKI", y_poski, yRef);
 
     // tune
     poski_TuneHint_MatMult(A_tunable, OP_NORMAL, 1, xposki_view, 0, yposki_view, ALWAYS_TUNE_AGGRESSIVELY);
@@ -453,7 +469,7 @@ int main(int argc, char* argv[]) {
 
     TACO_BENCH(poski_MatMult(A_tunable, OP_NORMAL, 1, xposki_view, 0, yposki_view);,"POSKI Tuned",repeat,timevalue,true);
 
-    Validate("POSKI Tuned", y_poski, yRef);
+    validate("POSKI Tuned", y_poski, yRef);
 
     // deallocate everything -- commented because of some crashes
 //    poski_DestroyMat(A_tunable);
@@ -471,12 +487,6 @@ int main(int argc, char* argv[]) {
 #ifdef MKL
   if (products.at("mkl")) {
     char matdescra[6] = "G  C ";
-    int m=A.getDimensions()[0];
-    int k=A.getDimensions()[1];
-    double *a_CSC;
-    int* ia_CSC;
-    int* ja_CSC;
-    getCSCArrays(A,&ia_CSC,&ja_CSC,&a_CSC);
     int ptrsize = A.getStorage().getIndex().getSize();
     int* pointerB=new int[ptrsize-1];
     int* pointerE=new int[ptrsize-1];
@@ -490,12 +500,12 @@ int main(int argc, char* argv[]) {
     double malpha=1.0;
     double mbeta=0.0;
     char transa = 'N';
-    TACO_BENCH(mkl_dcscmv(&transa, &m, &k, &malpha, matdescra, a_CSC, ja_CSC, pointerB,
+    TACO_BENCH(mkl_dcscmv(&transa, &rows, &cols, &malpha, matdescra, a_CSC, ja_CSC, pointerB,
                           pointerE, (double*)(x.getStorage().getValues().getData()),
                           &mbeta, (double*)(y_mkl.getStorage().getValues().getData()));,
                "MKL", repeat,timevalue,true)
 
-    Validate("MKL", y_mkl, yRef);
+    validate("MKL", y_mkl, yRef);
   }
 #else
   if (products.at("mkl")) {
