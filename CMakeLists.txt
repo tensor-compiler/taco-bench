@@ -56,4 +56,15 @@ else()
 #  target_link_libraries(${PROJECT_NAME} "-L${OSKI_LIBRARY_DIR} ${OSKI_MODULES}")
 endif ()
 
+# MKL
+if (NOT DEFINED ENV{MKL_ROOT})
+  message(WARNING "MKL not found and will not be used")
+else()
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DMKL ")    
+  include_directories($ENV{MKL_ROOT}/include)
+  target_link_libraries(${PROJECT_NAME} " -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread -lm -ldl")
+endif ()
+
+
+
    

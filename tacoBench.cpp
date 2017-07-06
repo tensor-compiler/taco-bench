@@ -101,6 +101,10 @@ extern "C" {
 }
 #endif
 
+#ifdef MKL
+  #include "mkl_spblas.h"
+#endif
+
 enum BenchExpr {SpMV};
 
 void Validate (string name, const Tensor<double>& Dst, const Tensor<double>& Ref) {
@@ -242,7 +246,7 @@ int main(int argc, char* argv[]) {
   }
 #else
   if (products.at("eigen")) {
-    return reportError("Cannot use EIGEN", 3);
+    cout << "Cannot use EIGEN" << endl;
   }
 #endif
 
@@ -274,7 +278,7 @@ int main(int argc, char* argv[]) {
   }
 #else
   if (products.at("gmm")) {
-    return reportError("Cannot use GMM++", 3);
+    cout << "Cannot use GMM++" << endl;
   }
 #endif
 
@@ -304,7 +308,7 @@ int main(int argc, char* argv[]) {
   }
 #else
   if (products.at("ublas")) {
-    return reportError("Cannot use UBLAS", 3);
+    cout << "Cannot use UBLAS" << endl;
   }
 #endif
 
@@ -364,16 +368,20 @@ int main(int argc, char* argv[]) {
         IndexVar ib,jb;
         Tensor<double> yb({rows/blockSize,blockSize}, Format({Dense,Dense}));
         Tensor<double> xb({cols/blockSize,blockSize}, Format({Dense,Dense}));
-        Tensor<double> Ab({rows/blockSize,cols/blockSize,blockSize,blockSize}, Format({Dense,Sparse,Dense,Dense}));
+        Tensor<double> Ab({rows/blockSize,cols/blockSize,blockSize,blockSize},
+                          Format({Dense,Sparse,Dense,Dense}));
 
         int i_b=0;
         for (auto& value : iterate<double>(x)) {
-          xb.insert({value.first.at(0)/blockSize,value.first.at(0)%blockSize},value.second);
+          xb.insert({value.first.at(0)/blockSize,value.first.at(0)%blockSize},
+                    value.second);
           i_b++;
         }
         xb.pack();
         for (auto& value : iterate<double>(A)) {
-          Ab.insert({value.first.at(0)/blockSize,value.first.at(1)/blockSize,value.first.at(0)%blockSize,value.first.at(1)%blockSize}, value.second);
+          Ab.insert({value.first.at(0)/blockSize,value.first.at(1)/blockSize,
+                     value.first.at(0)%blockSize,value.first.at(1)%blockSize},
+                    value.second);
         }
         Ab.pack();
 
@@ -386,7 +394,7 @@ int main(int argc, char* argv[]) {
   }
 #else
   if (products.at("oski")) {
-    return reportError("Cannot use OSKI", 3);
+    cout << "Cannot use OSKI" << endl;
   }
 #endif
 
@@ -395,19 +403,47 @@ int main(int argc, char* argv[]) {
   }
 #else
   if (products.at("poski")) {
-    return reportError("Cannot use POSKI", 3);
+    cout << "Cannot use POSKI" << endl;
   }
 #endif
 
 #ifdef MKL
   if (products.at("mkl")) {
+    char matdescra[6] = "G  C ";
+    int m=A.getDimensions()[0];
+    int k=A.getDimensions()[1];
+    double *a;
+    int* ia;
+    int* ja;
+    getCSCArrays(A,&ia,&ja,&a);
+    int ptrsize = A.getStorage().getIndex().getSize();
+    int* pointerB=new int[ptrsize-1];
+    int* pointerE=new int[ptrsize-1];
+    for (int i=0; i<ptrsize-1; i++) {
+      pointerB[i]=ia[i];
+      pointerE[i]=ia[i+1];
+    }
+    double* ymkl=new double[rows];
+    double malpha=1.0;
+    double mbeta=0.0;
+    char transa = 'N';
+    TACO_BENCH(mkl_dcscmv(&transa, &m, &k, &malpha, matdescra, a, ja, pointerB,
+                          pointerE, (double*)(x.getStorage().getValues().getData()),
+                          &mbeta, ymkl);,
+               "MKL", repeat,timevalue,true)
+
+    Tensor<double> y_mkl({rows}, Dense);
+    for (int i=0; i<rows; ++i) {
+      y_mkl.insert({i}, ymkl[i]);
+    }
+    y_mkl.pack();
+    Validate("MKL", y_mkl, yRef);
   }
 #else
   if (products.at("mkl")) {
-    return reportError("Cannot use MKL", 3);
+    cout << "Cannot use MKL" << endl;
   }
 #endif
-
 
       break;
     }
