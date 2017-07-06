@@ -56,6 +56,17 @@ else()
 #  target_link_libraries(${PROJECT_NAME} "-L${OSKI_LIBRARY_DIR} ${OSKI_MODULES}")
 endif ()
 
+# POSKI
+if ((NOT DEFINED ENV{POSKI_INCLUDE_DIR}) OR (NOT DEFINED ENV{POSKI_LIBRARY_DIR}))
+  message(WARNING "POSKI not found and will not be used")
+else()
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DPOSKI ")    
+  include_directories($ENV{POSKI_INCLUDE_DIR})
+  set(POSKI_LIBRARY_DIR $ENV{POSKI_LIBRARY_DIR})
+  set(POSKI_INCLUDE_DIR $ENV{POSKI_INCLUDE_DIR})
+  target_link_libraries(${PROJECT_NAME} "-Wl,-rpath -Wl,${POSKI_LIBRARY_DIR} -L${POSKI_LIBRARY_DIR} -lposki")
+endif ()
+
 # MKL
 if (NOT DEFINED ENV{MKL_ROOT})
   message(WARNING "MKL not found and will not be used")

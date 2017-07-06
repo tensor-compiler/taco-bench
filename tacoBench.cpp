@@ -101,6 +101,12 @@ extern "C" {
 }
 #endif
 
+#ifdef POSKI
+extern "C" {
+#include <poski/poski.h>
+}
+#endif
+
 #ifdef MKL
   #include "mkl_spblas.h"
 #endif
@@ -161,7 +167,7 @@ int main(int argc, char* argv[]) {
     }
     else if ("-p" == argName) {
       vector<string> descriptor = util::split(argValue, ",");
-      if (descriptor.size() >= products.size()) {
+      if (descriptor.size() > products.size()) {
         return reportError("Incorrect -p usage", 4);
       }
       for (auto &product : products ) {
@@ -356,10 +362,11 @@ int main(int argc, char* argv[]) {
 
       Validate("OSKI Tuned", y_oski, yRef);
 
-      oski_DestroyMat(Aoski);
-      oski_DestroyVecView(xoski);
-      oski_DestroyVecView(yoski);
-      oski_Close();
+      // commented to avoid some crashes with poski
+//      oski_DestroyMat(Aoski);
+//      oski_DestroyVecView(xoski);
+//      oski_DestroyVecView(yoski);
+//      oski_Close();
 
       // Taco block version with oski tuned number
       if (blockSize>0) {
@@ -399,7 +406,61 @@ int main(int argc, char* argv[]) {
 #endif
 
 #ifdef POSKI
-  if (products.at("oski")) {
+  if (products.at("poski")) {
+    // convert to CSR
+    Tensor<double> ACSR=read(inputFilenames.at("A"),CSR,true);
+    double *a_CSR;
+    int* ia_CSR;
+    int* ja_CSR;
+    getCSRArrays(ACSR,&ia_CSR,&ja_CSR,&a_CSR);
+
+    int extra = 0;
+    if (rows%8)
+      extra = 8-rows%8;
+    Tensor<double> xposki({cols+extra}, Dense);
+    int u=0;
+    for (auto& value : iterate<double>(x)) {
+      xposki.insert({u++}, value.second);
+    }
+    xposki.pack();
+
+    poski_Init();
+
+    // default thread object
+    poski_threadarg_t *poski_thread = poski_InitThreads();
+    poski_ThreadHints(poski_thread, NULL, POSKI_OPENMP, 12);
+    poski_partitionarg_t *mat_partition = NULL;
+
+    // create CSR matrix
+    poski_mat_t A_tunable = poski_CreateMatCSR(ia_CSR, ja_CSR, a_CSR,
+         rows, cols, ACSR.getStorage().getValues().getSize(),
+         COPY_INPUTMAT,  // greatest flexibility in tuning
+         poski_thread, mat_partition, 2, INDEX_ZERO_BASED, MAT_GENERAL);
+
+    Tensor<double> y_poski({rows}, Dense);
+    y_poski.pack();
+
+    poski_vec_t xposki_view = poski_CreateVec((double*)(xposki.getStorage().getValues().getData()), cols, STRIDE_UNIT, NULL);
+    poski_vec_t yposki_view = poski_CreateVec((double*)(y_poski.getStorage().getValues().getData()), rows, STRIDE_UNIT, NULL);
+
+    TACO_BENCH(poski_MatMult(A_tunable, OP_NORMAL, 1, xposki_view, 0, yposki_view);,"POSKI",repeat,timevalue,true)
+
+    Validate("POSKI", y_poski, yRef);
+
+    // tune
+    poski_TuneHint_MatMult(A_tunable, OP_NORMAL, 1, xposki_view, 0, yposki_view, ALWAYS_TUNE_AGGRESSIVELY);
+    poski_TuneMat(A_tunable);
+
+    TACO_BENCH(poski_MatMult(A_tunable, OP_NORMAL, 1, xposki_view, 0, yposki_view);,"POSKI Tuned",repeat,timevalue,true);
+
+    Validate("POSKI Tuned", y_poski, yRef);
+
+    // deallocate everything -- commented because of some crashes
+//    poski_DestroyMat(A_tunable);
+//    poski_DestroyVec(xoski_view);
+//    poski_DestroyVec(yoski_view);
+//    poski_DestroyThreads(poski_thread);
+//    poski_Close();
   }
 #else
   if (products.at("poski")) {
@@ -412,31 +473,28 @@ int main(int argc, char* argv[]) {
     char matdescra[6] = "G  C ";
     int m=A.getDimensions()[0];
     int k=A.getDimensions()[1];
-    double *a;
-    int* ia;
-    int* ja;
-    getCSCArrays(A,&ia,&ja,&a);
+    double *a_CSC;
+    int* ia_CSC;
+    int* ja_CSC;
+    getCSCArrays(A,&ia_CSC,&ja_CSC,&a_CSC);
     int ptrsize = A.getStorage().getIndex().getSize();
     int* pointerB=new int[ptrsize-1];
     int* pointerE=new int[ptrsize-1];
     for (int i=0; i<ptrsize-1; i++) {
-      pointerB[i]=ia[i];
-      pointerE[i]=ia[i+1];
+      pointerB[i]=ia_CSC[i];
+      pointerE[i]=ia_CSC[i+1];
     }
-    double* ymkl=new double[rows];
+    Tensor<double> y_mkl({rows}, Dense);
+    y_mkl.pack();
+
     double malpha=1.0;
     double mbeta=0.0;
     char transa = 'N';
-    TACO_BENCH(mkl_dcscmv(&transa, &m, &k, &malpha, matdescra, a, ja, pointerB,
+    TACO_BENCH(mkl_dcscmv(&transa, &m, &k, &malpha, matdescra, a_CSC, ja_CSC, pointerB,
                           pointerE, (double*)(x.getStorage().getValues().getData()),
-                          &mbeta, ymkl);,
+                          &mbeta, (double*)(y_mkl.getStorage().getValues().getData()));,
                "MKL", repeat,timevalue,true)
 
-    Tensor<double> y_mkl({rows}, Dense);
-    for (int i=0; i<rows; ++i) {
-      y_mkl.insert({i}, ymkl[i]);
-    }
-    y_mkl.pack();
     Validate("MKL", y_mkl, yRef);
   }
 #else
