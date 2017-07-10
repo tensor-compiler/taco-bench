@@ -88,9 +88,48 @@ static void readMatrixSize(string filename, int& rows, int& cols)
 }
 
 // Compare two tensors
+bool compare(const Tensor<double>&Dst, const Tensor<double>&Ref) {
+  if (Dst.getDimensions() != Ref.getDimensions()) {
+    return false;
+  }
+
+  {
+    std::set<std::vector<int>> coords;
+    for (const auto& val : Dst) {
+      if (!coords.insert(val.first).second) {
+        return false;
+      }
+    }
+  }
+
+  vector<std::pair<std::vector<int>,double>> vals;
+  for (const auto& val : Dst) {
+    if (val.second != 0) {
+      vals.push_back(val);
+    }
+  }
+
+  vector<std::pair<std::vector<int>,double>> expected;
+  for (const auto& val : Ref) {
+    if (val.second != 0) {
+      expected.push_back(val);
+    }
+  }
+  std::sort(expected.begin(), expected.end());
+  std::sort(vals.begin(), vals.end());
+  return vals == expected;
+}
+
 void validate (string name, const Tensor<double>& Dst, const Tensor<double>& Ref) {
-  if (!equals (Dst, Ref)) {
-    cout << "\033[1;31m  Validation Error with " << name << " \033[0m" << endl;
+  if (Dst.getFormat()==Ref.getFormat()) {
+    if (!equals (Dst, Ref)) {
+      cout << "\033[1;31m  Validation Error with " << name << " \033[0m" << endl;
+    }
+  }
+  else {
+    if (!compare(Dst,Ref)) {
+      cout << "\033[1;31m  Validation Error with " << name << " \033[0m" << endl;
+    }
   }
 }
 
@@ -131,7 +170,7 @@ extern "C" {
 #endif
 
 // Enum of possible expressions to Benchmark
-enum BenchExpr {SpMV};
+enum BenchExpr {SpMV,plus3};
 
 int main(int argc, char* argv[]) {
 
@@ -168,6 +207,10 @@ int main(int argc, char* argv[]) {
         Expression=stoi(argValue);
         if (Expression==1)
           Expr=SpMV;
+        else if(Expression==2)
+          Expr=plus3;
+        else
+          return reportError("Incorrect Expression descriptor", 3);
       }
       catch (...) {
         return reportError("Incorrect Expression descriptor", 3);
@@ -510,6 +553,88 @@ int main(int argc, char* argv[]) {
 #else
   if (products.at("mkl")) {
     cout << "Cannot use MKL" << endl;
+  }
+#endif
+
+      break;
+    }
+    case plus3: {
+      int rows,cols;
+      readMatrixSize(inputFilenames.at("B"),rows,cols);
+      Tensor<double> B=read(inputFilenames.at("B"),CSC,true);
+      Tensor<double> C=read(inputFilenames.at("C"),CSC,true);
+      Tensor<double> D=read(inputFilenames.at("D"),CSC,true);
+      Tensor<double> ARef("ARef",{rows,cols},CSC);
+      IndexVar i, j;
+      ARef(i,j) = B(i,j) + C(i,j) + D(i,j);
+      ARef.compile();
+      ARef.assemble();
+      ARef.compute();
+
+      map<string,Format> TacoFormats;
+      TacoFormats.insert({"CSR",CSR});
+      TacoFormats.insert({"Sparse,Sparse",Format({Sparse,Sparse})});
+      TacoFormats.insert({"CSC",CSC});
+
+      for (auto& formats:TacoFormats) {
+        cout << "A(i,j) = B(i,j) + C(i,j) + D(i,j) -- " << formats.first <<endl;
+        B=read(inputFilenames.at("B"),formats.second,true);
+        C=read(inputFilenames.at("C"),formats.second,true);
+        D=read(inputFilenames.at("D"),formats.second,true);
+        Tensor<double> A({rows,cols},formats.second);
+
+        A(i,j) = B(i,j) + C(i,j) + D(i,j);
+
+        TACO_BENCH(A.compile();, "Compile",1,timevalue,false)
+        TACO_BENCH(A.assemble();,"Assemble",1,timevalue,false)
+        TACO_BENCH(A.compute();, "Compute",repeat, timevalue, true)
+
+        validate("taco", A, ARef);
+      }
+      // get CSC arrays for other products
+      B=read(inputFilenames.at("B"),CSC,true);
+      C=read(inputFilenames.at("C"),CSC,true);
+      D=read(inputFilenames.at("D"),CSC,true);
+
+#ifdef EIGEN
+  if (products.at("eigen")) {
+      EigenSparseMatrix AEigen(rows,cols);
+      EigenSparseMatrix BEigen(rows,cols);
+      EigenSparseMatrix CEigen(rows,cols);
+      EigenSparseMatrix DEigen(rows,cols);
+
+      std::vector< Eigen::Triplet<double> > tripletList;
+      tripletList.reserve(B.getStorage().getValues().getSize());
+      for (auto& value : iterate<double>(B)) {
+        tripletList.push_back({value.first.at(0),value.first.at(1),value.second});
+      }
+      BEigen.setFromTriplets(tripletList.begin(), tripletList.end());
+      tripletList.clear();
+      tripletList.reserve(C.getStorage().getValues().getSize());
+      for (auto& value : iterate<double>(C)) {
+        tripletList.push_back({value.first.at(0),value.first.at(1),value.second});
+      }
+      CEigen.setFromTriplets(tripletList.begin(), tripletList.end());
+      tripletList.clear();
+      tripletList.reserve(D.getStorage().getValues().getSize());
+      for (auto& value : iterate<double>(D)) {
+        tripletList.push_back({value.first.at(0),value.first.at(1),value.second});
+      }
+      DEigen.setFromTriplets(tripletList.begin(), tripletList.end());
+
+      TACO_BENCH(AEigen = BEigen + CEigen + DEigen;,"Eigen",repeat,timevalue,true);
+
+      Tensor<double> A_Eigen({rows,cols}, CSC);
+      for (int j=0; j<cols; ++j)
+        for (EigenSparseMatrix::InnerIterator it(AEigen.derived(), j); it; ++it)
+          A_Eigen.insert({it.index(),j}, it.value());
+      A_Eigen.pack();
+
+      validate("Eigen", A_Eigen, ARef);
+  }
+#else
+  if (products.at("eigen")) {
+    cout << "Cannot use EIGEN" << endl;
   }
 #endif
 
