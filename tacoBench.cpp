@@ -11,6 +11,7 @@
 
 #include "tacoBench.h"
 #include "eigen4taco.h"
+#include "ublas4taco.h"
 
 using namespace taco;
 using namespace std;
@@ -89,13 +90,6 @@ static void readMatrixSize(string filename, int& rows, int& cols)
 #include "gmm/gmm.h"
 typedef gmm::csc_matrix<double> GmmSparse;
 typedef gmm::col_matrix< gmm::wsvector<double> > GmmDynSparse;
-#endif
-
-#ifdef UBLAS
-#include <boost/numeric/ublas/vector.hpp>
-#include <boost/numeric/ublas/matrix_sparse.hpp>
-#include <boost/numeric/ublas/operation.hpp>
-typedef boost::numeric::ublas::compressed_matrix<double,boost::numeric::ublas::column_major> UBlasSparse;
 #endif
 
 #ifdef OSKI
@@ -196,6 +190,11 @@ int main(int argc, char* argv[]) {
     cout << "tacoBench was not compiled with EIGEN and will not use it" << endl;
 #endif
   }
+  if (products.at("ublas")){
+#ifndef UBLAS
+    cout << "tacoBench was not compiled with UBLAS and will not use it" << endl;
+#endif
+  }
 
   // taco Formats
   map<string,Format> TacoFormats;
@@ -280,31 +279,7 @@ int main(int argc, char* argv[]) {
 
 #ifdef UBLAS
   if (products.at("ublas")) {
-      UBlasSparse Aublas(rows,cols);
-
-      for (auto& value : iterate<double>(A)) {
-        Aublas(value.first.at(0),value.first.at(1)) = value.second;
-      }
-
-      boost::numeric::ublas::vector<double> xublas(cols), yublas(rows);
-      int t=0;
-      for (auto& value : iterate<double>(x)) {
-        xublas[t++] = value.second;
-      }
-
-      TACO_BENCH(boost::numeric::ublas::axpy_prod(Aublas, xublas, yublas, true);,"UBLAS",repeat,timevalue,true);
-
-      Tensor<double> y_ublas({rows}, Dense);
-      for (int i=0; i<rows; ++i) {
-        y_ublas.insert({i}, yublas[i]);
-      }
-      y_ublas.pack();
-
-      validate("UBLAS", y_ublas, yRef);
-  }
-#else
-  if (products.at("ublas")) {
-    cout << "Cannot use UBLAS" << endl;
+      exprToUBLAS(Expr,exprOperands,repeat,timevalue);
   }
 #endif
 
@@ -529,6 +504,11 @@ int main(int argc, char* argv[]) {
 #ifdef EIGEN
       if (products.at("eigen")) {
         exprToEigen(Expr,exprOperands,repeat,timevalue);
+      }
+#endif
+#ifdef UBLAS
+      if (products.at("ublas")) {
+          exprToUBLAS(Expr,exprOperands,repeat,timevalue);
       }
 #endif
 
