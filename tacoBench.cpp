@@ -9,14 +9,11 @@
 #include "taco/util/collections.h"
 #include "taco/util/fill.h"
 
+#include "tacoBench.h"
+#include "eigen4taco.h"
+
 using namespace taco;
 using namespace std;
-
-// MACRO to benchmark some CODE with REPEAT times and COLD/WARM cache
-#define TACO_BENCH(CODE, NAME, REPEAT, TIMER, COLD) {           \
-    TACO_TIME_REPEAT(CODE, REPEAT, TIMER, COLD);                \
-    cout << NAME << " time (ms)" << endl << TIMER << endl;      \
-}
 
 static void printFlag(string flag, string text) {
   const size_t descriptionStart = 30;
@@ -87,59 +84,7 @@ static void readMatrixSize(string filename, int& rows, int& cols)
   file.close();
 }
 
-// Compare two tensors
-bool compare(const Tensor<double>&Dst, const Tensor<double>&Ref) {
-  if (Dst.getDimensions() != Ref.getDimensions()) {
-    return false;
-  }
-
-  {
-    std::set<std::vector<int>> coords;
-    for (const auto& val : Dst) {
-      if (!coords.insert(val.first).second) {
-        return false;
-      }
-    }
-  }
-
-  vector<std::pair<std::vector<int>,double>> vals;
-  for (const auto& val : Dst) {
-    if (val.second != 0) {
-      vals.push_back(val);
-    }
-  }
-
-  vector<std::pair<std::vector<int>,double>> expected;
-  for (const auto& val : Ref) {
-    if (val.second != 0) {
-      expected.push_back(val);
-    }
-  }
-  std::sort(expected.begin(), expected.end());
-  std::sort(vals.begin(), vals.end());
-  return vals == expected;
-}
-
-void validate (string name, const Tensor<double>& Dst, const Tensor<double>& Ref) {
-  if (Dst.getFormat()==Ref.getFormat()) {
-    if (!equals (Dst, Ref)) {
-      cout << "\033[1;31m  Validation Error with " << name << " \033[0m" << endl;
-    }
-  }
-  else {
-    if (!compare(Dst,Ref)) {
-      cout << "\033[1;31m  Validation Error with " << name << " \033[0m" << endl;
-    }
-  }
-}
-
 // Includes for all the products
-#ifdef EIGEN
-#include <Eigen/Sparse>
-typedef Eigen::Matrix<double,Eigen::Dynamic,1> DenseVector;
-typedef Eigen::SparseMatrix<double> EigenSparseMatrix;
-#endif
-
 #ifdef GMM
 #include "gmm/gmm.h"
 typedef gmm::csc_matrix<double> GmmSparse;
@@ -169,13 +114,11 @@ extern "C" {
   #include "mkl_spblas.h"
 #endif
 
-// Enum of possible expressions to Benchmark
-enum BenchExpr {SpMV,plus3};
-
 int main(int argc, char* argv[]) {
 
   int Expression=1;
   BenchExpr Expr;
+  map<string,Tensor<double>> exprOperands;
   int repeat=1;
   map<string,string> inputFilenames;
   taco::util::TimeResults timevalue;
@@ -247,7 +190,14 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  // taco expression
+  // Check products
+  if (products.at("eigen")){
+#ifndef EIGEN
+    cout << "tacoBench was not compiled with EIGEN and will not use it" << endl;
+#endif
+  }
+
+  // taco Formats
   map<string,Format> TacoFormats;
   TacoFormats.insert({"CSR",CSR});
   TacoFormats.insert({"Sparse,Sparse",Format({Sparse,Sparse})});
@@ -286,39 +236,14 @@ int main(int argc, char* argv[]) {
       int* ia_CSC;
       int* ja_CSC;
       getCSCArrays(A,&ia_CSC,&ja_CSC,&a_CSC);
+      exprOperands.insert({"yRef",yRef});
+      exprOperands.insert({"A",A});
+      exprOperands.insert({"x",x});
 
 #ifdef EIGEN
-  if (products.at("eigen")) {
-      DenseVector xEigen(cols);
-      DenseVector yEigen(rows);
-      EigenSparseMatrix AEigen(rows,cols);
-
-      int r=0;
-      for (auto& value : iterate<double>(x)) {
-        xEigen(r++) = value.second;
+      if (products.at("eigen")) {
+        exprToEigen(Expr,exprOperands,repeat,timevalue);
       }
-
-      std::vector< Eigen::Triplet<double> > tripletList;
-      tripletList.reserve(A.getStorage().getValues().getSize());
-      for (auto& value : iterate<double>(A)) {
-        tripletList.push_back({value.first.at(0),value.first.at(1),value.second});
-      }
-      AEigen.setFromTriplets(tripletList.begin(), tripletList.end());
-
-      TACO_BENCH(yEigen.noalias() = AEigen * xEigen;,"Eigen",repeat,timevalue,true);
-
-      Tensor<double> y_Eigen({rows}, Dense);
-      for (int i=0; i<rows; ++i) {
-        y_Eigen.insert({i}, yEigen(i));
-      }
-      y_Eigen.pack();
-
-      validate("Eigen", y_Eigen, yRef);
-  }
-#else
-  if (products.at("eigen")) {
-    cout << "Cannot use EIGEN" << endl;
-  }
 #endif
 
 #ifdef GMM
@@ -596,46 +521,15 @@ int main(int argc, char* argv[]) {
       C=read(inputFilenames.at("C"),CSC,true);
       D=read(inputFilenames.at("D"),CSC,true);
 
+      exprOperands.insert({"ARef",ARef});
+      exprOperands.insert({"B",B});
+      exprOperands.insert({"C",C});
+      exprOperands.insert({"D",D});
+
 #ifdef EIGEN
-  if (products.at("eigen")) {
-      EigenSparseMatrix AEigen(rows,cols);
-      EigenSparseMatrix BEigen(rows,cols);
-      EigenSparseMatrix CEigen(rows,cols);
-      EigenSparseMatrix DEigen(rows,cols);
-
-      std::vector< Eigen::Triplet<double> > tripletList;
-      tripletList.reserve(B.getStorage().getValues().getSize());
-      for (auto& value : iterate<double>(B)) {
-        tripletList.push_back({value.first.at(0),value.first.at(1),value.second});
+      if (products.at("eigen")) {
+        exprToEigen(Expr,exprOperands,repeat,timevalue);
       }
-      BEigen.setFromTriplets(tripletList.begin(), tripletList.end());
-      tripletList.clear();
-      tripletList.reserve(C.getStorage().getValues().getSize());
-      for (auto& value : iterate<double>(C)) {
-        tripletList.push_back({value.first.at(0),value.first.at(1),value.second});
-      }
-      CEigen.setFromTriplets(tripletList.begin(), tripletList.end());
-      tripletList.clear();
-      tripletList.reserve(D.getStorage().getValues().getSize());
-      for (auto& value : iterate<double>(D)) {
-        tripletList.push_back({value.first.at(0),value.first.at(1),value.second});
-      }
-      DEigen.setFromTriplets(tripletList.begin(), tripletList.end());
-
-      TACO_BENCH(AEigen = BEigen + CEigen + DEigen;,"Eigen",repeat,timevalue,true);
-
-      Tensor<double> A_Eigen({rows,cols}, CSC);
-      for (int j=0; j<cols; ++j)
-        for (EigenSparseMatrix::InnerIterator it(AEigen.derived(), j); it; ++it)
-          A_Eigen.insert({it.index(),j}, it.value());
-      A_Eigen.pack();
-
-      validate("Eigen", A_Eigen, ARef);
-  }
-#else
-  if (products.at("eigen")) {
-    cout << "Cannot use EIGEN" << endl;
-  }
 #endif
 
       break;
