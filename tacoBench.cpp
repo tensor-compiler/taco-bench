@@ -10,11 +10,13 @@
 #include "taco/util/fill.h"
 
 #include "tacoBench.h"
+// Includes for all the products
 #include "eigen4taco.h"
 #include "ublas4taco.h"
 #include "gmm4taco.h"
 #include "mkl4taco.h"
 #include "poski4taco.h"
+#include "oski4taco.h"
 
 using namespace taco;
 using namespace std;
@@ -88,12 +90,6 @@ static void readMatrixSize(string filename, int& rows, int& cols)
   file.close();
 }
 
-// Includes for all the products
-#ifdef OSKI
-extern "C" {
-#include <oski/oski.h>
-}
-#endif
 
 int main(int argc, char* argv[]) {
 
@@ -202,6 +198,12 @@ int main(int argc, char* argv[]) {
     products.at("poski")=false;
 #endif
   }
+  if (products.at("oski")){
+#ifndef OSKI
+    cout << "tacoBench was not compiled with OSKI and will not use it" << endl;
+    products.at("oski")=false;
+#endif
+  }
 
   // taco Formats
   map<string,Format> TacoFormats;
@@ -238,94 +240,9 @@ int main(int argc, char* argv[]) {
       }
       // get CSC arrays for other products
       A=read(inputFilenames.at("A"),CSC,true);
-      double *a_CSC;
-      int* ia_CSC;
-      int* ja_CSC;
-      getCSCArrays(A,&ia_CSC,&ja_CSC,&a_CSC);
       exprOperands.insert({"yRef",yRef});
       exprOperands.insert({"A",A});
       exprOperands.insert({"x",x});
-
-#ifdef OSKI
-  if (products.at("oski")) {
-      oski_matrix_t Aoski;
-      oski_vecview_t xoski, yoski;
-      oski_Init();
-      Aoski = oski_CreateMatCSC(ia_CSC,ja_CSC,a_CSC,
-                                rows, cols, SHARE_INPUTMAT, 1, INDEX_ZERO_BASED);
-      xoski = oski_CreateVecView((double*)(x.getStorage().getValues().getData()),
-                                 cols, STRIDE_UNIT);
-      Tensor<double> y_oski({rows}, Dense);
-      y_oski.pack();
-      yoski = oski_CreateVecView((double*)(y_oski.getStorage().getValues().getData()),
-                                 rows, STRIDE_UNIT);
-
-      TACO_BENCH( oski_MatMult(Aoski, OP_NORMAL, 1, xoski, 0, yoski);,"OSKI",repeat,timevalue,true );
-
-      validate("OSKI", y_oski, yRef);
-
-      // Tuned version
-      oski_SetHintMatMult(Aoski, OP_NORMAL, 1.0, SYMBOLIC_VEC, 0.0, SYMBOLIC_VEC, ALWAYS_TUNE_AGGRESSIVELY);
-      oski_TuneMat(Aoski);
-      char* xform = oski_GetMatTransforms (Aoski);
-      int blockSize=0;
-      if (xform) {
-        fprintf (stdout, "\tDid tune: '%s'\n", xform);
-        std::string oskiTune(xform);
-        std::string oskiBegin=oskiTune.substr(oskiTune.find(",")+2);
-        std::string oskiXSize=oskiBegin.substr(0,oskiBegin.find(","));
-        int XOski=atoi(oskiXSize.c_str());
-        if (XOski!=0)
-          blockSize = XOski;
-        oski_Free (xform);
-      }
-
-      TACO_BENCH(oski_MatMult(Aoski, OP_NORMAL, 1, xoski, 0, yoski);,"OSKI Tuned",repeat,timevalue,true);
-
-      validate("OSKI Tuned", y_oski, yRef);
-
-      // commented to avoid some crashes with poski
-//      oski_DestroyMat(Aoski);
-//      oski_DestroyVecView(xoski);
-//      oski_DestroyVecView(yoski);
-//      oski_Close();
-
-      // Taco block version with oski tuned number
-      if (blockSize>0) {
-        cout << "y(i,ib) = A(i,j,ib,jb)*x(j,jb) -- DSDD " <<endl;
-
-        IndexVar ib,jb;
-        Tensor<double> yb({rows/blockSize,blockSize}, Format({Dense,Dense}));
-        Tensor<double> xb({cols/blockSize,blockSize}, Format({Dense,Dense}));
-        Tensor<double> Ab({rows/blockSize,cols/blockSize,blockSize,blockSize},
-                          Format({Dense,Sparse,Dense,Dense}));
-
-        int i_b=0;
-        for (auto& value : iterate<double>(x)) {
-          xb.insert({value.first.at(0)/blockSize,value.first.at(0)%blockSize},
-                    value.second);
-          i_b++;
-        }
-        xb.pack();
-        for (auto& value : iterate<double>(A)) {
-          Ab.insert({value.first.at(0)/blockSize,value.first.at(1)/blockSize,
-                     value.first.at(0)%blockSize,value.first.at(1)%blockSize},
-                    value.second);
-        }
-        Ab.pack();
-
-        yb(i,ib) = Ab(i,j,ib,jb) * xb(j,jb);
-
-        TACO_BENCH(yb.compile();, "Compile",1,timevalue,false)
-        TACO_BENCH(yb.assemble();,"Assemble",1,timevalue,false)
-        TACO_BENCH(yb.compute();, "Compute",repeat, timevalue, true)
-      }
-  }
-#else
-  if (products.at("oski")) {
-    cout << "Cannot use OSKI" << endl;
-  }
-#endif
 
       break;
     }
@@ -401,6 +318,11 @@ int main(int argc, char* argv[]) {
 #ifdef POSKI
   if (products.at("poski")) {
     exprToPOSKI(Expr,exprOperands,repeat,timevalue);
+  }
+#endif
+#ifdef OSKI
+  if (products.at("oski")) {
+    exprToOSKI(Expr,exprOperands,repeat,timevalue);
   }
 #endif
 }
