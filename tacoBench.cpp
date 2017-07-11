@@ -12,6 +12,7 @@
 #include "tacoBench.h"
 #include "eigen4taco.h"
 #include "ublas4taco.h"
+#include "gmm4taco.h"
 
 using namespace taco;
 using namespace std;
@@ -86,12 +87,6 @@ static void readMatrixSize(string filename, int& rows, int& cols)
 }
 
 // Includes for all the products
-#ifdef GMM
-#include "gmm/gmm.h"
-typedef gmm::csc_matrix<double> GmmSparse;
-typedef gmm::col_matrix< gmm::wsvector<double> > GmmDynSparse;
-#endif
-
 #ifdef OSKI
 extern "C" {
 #include <oski/oski.h>
@@ -195,6 +190,11 @@ int main(int argc, char* argv[]) {
     cout << "tacoBench was not compiled with UBLAS and will not use it" << endl;
 #endif
   }
+  if (products.at("gmm")){
+#ifndef GMM
+    cout << "tacoBench was not compiled with GMM and will not use it" << endl;
+#endif
+  }
 
   // taco Formats
   map<string,Format> TacoFormats;
@@ -246,34 +246,32 @@ int main(int argc, char* argv[]) {
 #endif
 
 #ifdef GMM
-  if (products.at("gmm")) {
-      GmmSparse Agmm(rows,cols);
+      if (products.at("gmm")) {
+        exprToGMM(Expr,exprOperands,repeat,timevalue);
 
-      GmmDynSparse tmp(rows, cols);
-      for (auto& value : iterate<double>(A)) {
-        tmp(value.first.at(0),value.first.at(1)) = value.second;
-      }
-      gmm::copy(tmp, Agmm);
-
-      std::vector<double> xgmm(cols), ygmm(rows);
-      int s=0;
-      for (auto& value : iterate<double>(x)) {
-        xgmm[s++] = value.second;
-      }
-
-      TACO_BENCH(gmm::mult(Agmm, xgmm, ygmm);,"GMM",repeat,timevalue,true);
-
-      Tensor<double> y_gmm({rows}, Dense);
-      for (int i=0; i<rows; ++i) {
-        y_gmm.insert({i}, ygmm[i]);
-      }
-      y_gmm.pack();
-
-      validate("GMM++", y_gmm, yRef);
-  }
-#else
-  if (products.at("gmm")) {
-    cout << "Cannot use GMM++" << endl;
+//      GmmSparse Agmm(rows,cols);
+//
+//      GmmDynSparse tmp(rows, cols);
+//      for (auto& value : iterate<double>(A)) {
+//        tmp(value.first.at(0),value.first.at(1)) = value.second;
+//      }
+//      gmm::copy(tmp, Agmm);
+//
+//      std::vector<double> xgmm(cols), ygmm(rows);
+//      int s=0;
+//      for (auto& value : iterate<double>(x)) {
+//        xgmm[s++] = value.second;
+//      }
+//
+//      TACO_BENCH(gmm::mult(Agmm, xgmm, ygmm);,"GMM",repeat,timevalue,true);
+//
+//      Tensor<double> y_gmm({rows}, Dense);
+//      for (int i=0; i<rows; ++i) {
+//        y_gmm.insert({i}, ygmm[i]);
+//      }
+//      y_gmm.pack();
+//
+//      validate("GMM++", y_gmm, yRef);
   }
 #endif
 
