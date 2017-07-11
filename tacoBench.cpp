@@ -13,6 +13,7 @@
 #include "eigen4taco.h"
 #include "ublas4taco.h"
 #include "gmm4taco.h"
+#include "mkl4taco.h"
 
 using namespace taco;
 using namespace std;
@@ -99,9 +100,6 @@ extern "C" {
 }
 #endif
 
-#ifdef MKL
-  #include "mkl_spblas.h"
-#endif
 
 int main(int argc, char* argv[]) {
 
@@ -183,16 +181,25 @@ int main(int argc, char* argv[]) {
   if (products.at("eigen")){
 #ifndef EIGEN
     cout << "tacoBench was not compiled with EIGEN and will not use it" << endl;
+    products.at("eigen")=false;
 #endif
   }
   if (products.at("ublas")){
 #ifndef UBLAS
     cout << "tacoBench was not compiled with UBLAS and will not use it" << endl;
+    products.at("ublas")=false;
 #endif
   }
   if (products.at("gmm")){
 #ifndef GMM
     cout << "tacoBench was not compiled with GMM and will not use it" << endl;
+    products.at("gmm")=false;
+#endif
+  }
+  if (products.at("mkl")){
+#ifndef MKL
+    cout << "tacoBench was not compiled with MKL and will not use it" << endl;
+    products.at("mkl")=false;
 #endif
   }
 
@@ -238,48 +245,6 @@ int main(int argc, char* argv[]) {
       exprOperands.insert({"yRef",yRef});
       exprOperands.insert({"A",A});
       exprOperands.insert({"x",x});
-
-#ifdef EIGEN
-      if (products.at("eigen")) {
-        exprToEigen(Expr,exprOperands,repeat,timevalue);
-      }
-#endif
-
-#ifdef GMM
-      if (products.at("gmm")) {
-        exprToGMM(Expr,exprOperands,repeat,timevalue);
-
-//      GmmSparse Agmm(rows,cols);
-//
-//      GmmDynSparse tmp(rows, cols);
-//      for (auto& value : iterate<double>(A)) {
-//        tmp(value.first.at(0),value.first.at(1)) = value.second;
-//      }
-//      gmm::copy(tmp, Agmm);
-//
-//      std::vector<double> xgmm(cols), ygmm(rows);
-//      int s=0;
-//      for (auto& value : iterate<double>(x)) {
-//        xgmm[s++] = value.second;
-//      }
-//
-//      TACO_BENCH(gmm::mult(Agmm, xgmm, ygmm);,"GMM",repeat,timevalue,true);
-//
-//      Tensor<double> y_gmm({rows}, Dense);
-//      for (int i=0; i<rows; ++i) {
-//        y_gmm.insert({i}, ygmm[i]);
-//      }
-//      y_gmm.pack();
-//
-//      validate("GMM++", y_gmm, yRef);
-  }
-#endif
-
-#ifdef UBLAS
-  if (products.at("ublas")) {
-      exprToUBLAS(Expr,exprOperands,repeat,timevalue);
-  }
-#endif
 
 #ifdef OSKI
   if (products.at("oski")) {
@@ -365,7 +330,11 @@ int main(int argc, char* argv[]) {
 #ifdef POSKI
   if (products.at("poski")) {
     // convert to CSR
-    Tensor<double> ACSR=read(inputFilenames.at("A"),CSR,true);
+    Tensor<double> ACSR({rows,cols}, CSR);
+    for (auto& value : iterate<double>(A)) {
+      ACSR.insert({value.first.at(0),value.first.at(1)},value.second);
+    }
+    ACSR.pack();
     double *a_CSR;
     int* ia_CSR;
     int* ja_CSR;
@@ -425,35 +394,6 @@ int main(int argc, char* argv[]) {
   }
 #endif
 
-#ifdef MKL
-  if (products.at("mkl")) {
-    char matdescra[6] = "G  C ";
-    int ptrsize = A.getStorage().getIndex().getSize();
-    int* pointerB=new int[ptrsize-1];
-    int* pointerE=new int[ptrsize-1];
-    for (int i=0; i<ptrsize-1; i++) {
-      pointerB[i]=ia_CSC[i];
-      pointerE[i]=ia_CSC[i+1];
-    }
-    Tensor<double> y_mkl({rows}, Dense);
-    y_mkl.pack();
-
-    double malpha=1.0;
-    double mbeta=0.0;
-    char transa = 'N';
-    TACO_BENCH(mkl_dcscmv(&transa, &rows, &cols, &malpha, matdescra, a_CSC, ja_CSC, pointerB,
-                          pointerE, (double*)(x.getStorage().getValues().getData()),
-                          &mbeta, (double*)(y_mkl.getStorage().getValues().getData()));,
-               "MKL", repeat,timevalue,true)
-
-    validate("MKL", y_mkl, yRef);
-  }
-#else
-  if (products.at("mkl")) {
-    cout << "Cannot use MKL" << endl;
-  }
-#endif
-
       break;
     }
     case plus3: {
@@ -499,22 +439,31 @@ int main(int argc, char* argv[]) {
       exprOperands.insert({"C",C});
       exprOperands.insert({"D",D});
 
-#ifdef EIGEN
-      if (products.at("eigen")) {
-        exprToEigen(Expr,exprOperands,repeat,timevalue);
-      }
-#endif
-#ifdef UBLAS
-      if (products.at("ublas")) {
-          exprToUBLAS(Expr,exprOperands,repeat,timevalue);
-      }
-#endif
-
       break;
     }
     default: {
       return reportError("Unknown Expression", 3);
     }
   }
+#ifdef EIGEN
+  if (products.at("eigen")) {
+    exprToEIGEN(Expr,exprOperands,repeat,timevalue);
+  }
+#endif
+#ifdef UBLAS
+  if (products.at("ublas")) {
+    exprToUBLAS(Expr,exprOperands,repeat,timevalue);
+  }
+#endif
+#ifdef GMM
+  if (products.at("gmm")) {
+    exprToGMM(Expr,exprOperands,repeat,timevalue);
+  }
+#endif
+#ifdef MKL
+  if (products.at("mkl")) {
+    exprToMKL(Expr,exprOperands,repeat,timevalue);
+  }
+#endif
 }
 

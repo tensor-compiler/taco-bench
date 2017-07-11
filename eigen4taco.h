@@ -40,7 +40,7 @@ typedef Eigen::SparseMatrix<double> EigenSparseMatrix;
       dst(value.first[0]) = value.second;
   }
 
-  void exprToEigen(BenchExpr Expr, map<string,Tensor<double>> exprOperands,int repeat, taco::util::TimeResults timevalue) {
+  void exprToEIGEN(BenchExpr Expr, map<string,Tensor<double>> exprOperands,int repeat, taco::util::TimeResults timevalue) {
     switch(Expr) {
       case SpMV: {
         int rows=exprOperands.at("A").getDimension(0);
