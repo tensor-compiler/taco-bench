@@ -12,21 +12,25 @@ typedef boost::numeric::ublas::compressed_matrix<double,boost::numeric::ublas::c
 typedef boost::numeric::ublas::vector<double> UBlasDenseVector;
 #endif
 
-  void tacoToUBLAS(const Tensor<double>& src, UBlasSparse& dst)
-  {
+  void UBLASTotaco(const UBlasSparse& src, Tensor<double>& dst){
+    for (auto it1 = src.begin2(); it1 != src.end2(); it1++ )
+      for (auto it2 = it1.begin(); it2 != it1.end(); ++it2 )
+        dst.insert({(int)(it2.index1()),(int)(it2.index2())},*it2);
+    dst.pack();
+  }
+
+  void tacoToUBLAS(const Tensor<double>& src, UBlasSparse& dst) {
     for (auto& value : iterate<double>(src))
       dst(value.first.at(0),value.first.at(1)) = value.second;
   }
 
   void UBLASTotaco(const UBlasDenseVector& src, Tensor<double>& dst){
-    for (int i=0; i<dst.getDimension(0); ++i) {
+    for (int i=0; i<dst.getDimension(0); ++i)
       dst.insert({i}, src[i]);
-    }
     dst.pack();
   }
 
-  void tacoToUBLAS(const Tensor<double>& src, UBlasDenseVector& dst)
-  {
+  void tacoToUBLAS(const Tensor<double>& src, UBlasDenseVector& dst)  {
     for (auto& value : iterate<double>(src))
       dst(value.first[0]) = value.second;
   }
@@ -48,6 +52,26 @@ typedef boost::numeric::ublas::vector<double> UBlasDenseVector;
         UBLASTotaco(yublas,y_ublas);
 
         validate("UBLAS", y_ublas, exprOperands.at("yRef"));
+        break;
+      }
+      case plus3: {
+        int rows=exprOperands.at("ARef").getDimension(0);
+        int cols=exprOperands.at("ARef").getDimension(1);
+        UBlasSparse Aublas(rows,cols);
+        UBlasSparse Bublas(rows,cols);
+        UBlasSparse Cublas(rows,cols);
+        UBlasSparse Dublas(rows,cols);
+
+        tacoToUBLAS(exprOperands.at("B"),Bublas);
+        tacoToUBLAS(exprOperands.at("C"),Cublas);
+        tacoToUBLAS(exprOperands.at("D"),Dublas);
+
+        TACO_BENCH(noalias(Aublas) = Bublas + Cublas + Dublas;,"UBLAS",repeat,timevalue,true);
+
+        Tensor<double> A_ublas({rows,cols}, CSC);
+        UBLASTotaco(Aublas,A_ublas);
+
+        validate("UBLAS", A_ublas, exprOperands.at("ARef"));
         break;
       }
       default:
