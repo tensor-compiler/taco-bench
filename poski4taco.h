@@ -74,7 +74,7 @@ extern "C" {
         break;
       }
       default:
-        cout << " !! Expression not implemented for MKL" << endl;
+        cout << " !! Expression not implemented for POSKI" << endl;
         break;
     }
   }

@@ -39,6 +39,77 @@ using namespace std;
 
         break;
       }
+      case plus3: {
+        int rows=exprOperands.at("ARef").getDimension(0);
+        int cols=exprOperands.at("ARef").getDimension(1);
+        int nnz=exprOperands.at("B").getStorage().getValues().getSize();
+        // convert to CSR
+        Tensor<double> BCSR({rows,cols}, CSR);
+        for (auto& value : iterate<double>(exprOperands.at("B"))) {
+          BCSR.insert({value.first.at(0),value.first.at(1)},value.second);
+        }
+        BCSR.pack();
+        double *b_CSR;
+        int* ib_CSR;
+        int* jb_CSR;
+        getCSRArrays(BCSR,&ib_CSR,&jb_CSR,&b_CSR);
+        Tensor<double> CCSR({rows,cols}, CSR);
+        for (auto& value : iterate<double>(exprOperands.at("C"))) {
+          CCSR.insert({value.first.at(0),value.first.at(1)},value.second);
+        }
+        CCSR.pack();
+        double *c_CSR;
+        int* ic_CSR;
+        int* jc_CSR;
+        getCSRArrays(CCSR,&ic_CSR,&jc_CSR,&c_CSR);
+        Tensor<double> DCSR({rows,cols}, CSR);
+        for (auto& value : iterate<double>(exprOperands.at("D"))) {
+          DCSR.insert({value.first.at(0),value.first.at(1)},value.second);
+        }
+        DCSR.pack();
+        double *d_CSR;
+        int* id_CSR;
+        int* jd_CSR;
+        getCSRArrays(DCSR,&id_CSR,&jd_CSR,&d_CSR);
+
+        char transa = 'N';
+        int ptrsize = rows + 1;
+        double malpha=1.0;
+        double mbeta=0.0;
+
+        for (int i = 0; i < ptrsize; ++i) {
+          ib_CSR[i] = ib_CSR[i] + 1;
+          ic_CSR[i] = ic_CSR[i] + 1;
+          id_CSR[i] = id_CSR[i] + 1;
+        }
+        for (int i = 0; i < nnz; ++i) {
+          jb_CSR[i] = jb_CSR[i] + 1;
+          jc_CSR[i] = jc_CSR[i] + 1;
+          jd_CSR[i] = jd_CSR[i] + 1;
+        }
+        MKL_INT request = 0;
+        MKL_INT sort = 0;
+        MKL_INT ret;
+        double *a_CSR;
+        int* ia_CSR;
+        int* ja_CSR;
+
+        TACO_BENCH( a_CSR = new double[4*nnz]; ia_CSR = new int[4*nnz]; ja_CSR = new int[4*nnz];
+             mkl_dcsradd(&transa, &request, &sort, &rows, &cols, b_CSR, jb_CSR, ib_CSR, &malpha, c_CSR, jc_CSR, ic_CSR, a_CSR, ja_CSR, ia_CSR, &nnz, &ret);
+             mkl_dcsradd(&transa, &request, &sort, &rows, &cols, a_CSR, ja_CSR, ia_CSR, &malpha, d_CSR, jd_CSR, id_CSR, a_CSR, ja_CSR, ia_CSR, &nnz, &ret);,
+             "MKL",repeat,timevalue,true);
+
+        for (int i = 0; i < ptrsize; ++i) {
+          ia_CSR[i] = ia_CSR[i] - 1;
+        }
+        for (int i = 0; i < nnz; ++i) {
+          ja_CSR[i] = ja_CSR[i] - 1;
+        }
+        Tensor<double> AMKL=makeCSR("AMKL",{rows,cols}, ia_CSR, ja_CSR, a_CSR);
+        validate("MKL", AMKL, exprOperands.at("ARef"));
+
+        break;
+      }
       default:
         cout << " !! Expression not implemented for MKL" << endl;
         break;
