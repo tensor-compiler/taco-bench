@@ -14,6 +14,7 @@
 #include "ublas4taco.h"
 #include "gmm4taco.h"
 #include "mkl4taco.h"
+#include "poski4taco.h"
 
 using namespace taco;
 using namespace std;
@@ -93,13 +94,6 @@ extern "C" {
 #include <oski/oski.h>
 }
 #endif
-
-#ifdef POSKI
-extern "C" {
-#include <poski/poski.h>
-}
-#endif
-
 
 int main(int argc, char* argv[]) {
 
@@ -200,6 +194,12 @@ int main(int argc, char* argv[]) {
 #ifndef MKL
     cout << "tacoBench was not compiled with MKL and will not use it" << endl;
     products.at("mkl")=false;
+#endif
+  }
+  if (products.at("poski")){
+#ifndef POSKI
+    cout << "tacoBench was not compiled with POSKI and will not use it" << endl;
+    products.at("poski")=false;
 #endif
   }
 
@@ -327,73 +327,6 @@ int main(int argc, char* argv[]) {
   }
 #endif
 
-#ifdef POSKI
-  if (products.at("poski")) {
-    // convert to CSR
-    Tensor<double> ACSR({rows,cols}, CSR);
-    for (auto& value : iterate<double>(A)) {
-      ACSR.insert({value.first.at(0),value.first.at(1)},value.second);
-    }
-    ACSR.pack();
-    double *a_CSR;
-    int* ia_CSR;
-    int* ja_CSR;
-    getCSRArrays(ACSR,&ia_CSR,&ja_CSR,&a_CSR);
-
-    int extra = 0;
-    if (rows%8)
-      extra = 8-rows%8;
-    Tensor<double> xposki({cols+extra}, Dense);
-    int u=0;
-    for (auto& value : iterate<double>(x)) {
-      xposki.insert({u++}, value.second);
-    }
-    xposki.pack();
-
-    poski_Init();
-
-    // default thread object
-    poski_threadarg_t *poski_thread = poski_InitThreads();
-    poski_ThreadHints(poski_thread, NULL, POSKI_OPENMP, 12);
-    poski_partitionarg_t *mat_partition = NULL;
-
-    // create CSR matrix
-    poski_mat_t A_tunable = poski_CreateMatCSR(ia_CSR, ja_CSR, a_CSR,
-         rows, cols, ACSR.getStorage().getValues().getSize(),
-         COPY_INPUTMAT,  // greatest flexibility in tuning
-         poski_thread, mat_partition, 2, INDEX_ZERO_BASED, MAT_GENERAL);
-
-    Tensor<double> y_poski({rows}, Dense);
-    y_poski.pack();
-
-    poski_vec_t xposki_view = poski_CreateVec((double*)(xposki.getStorage().getValues().getData()), cols, STRIDE_UNIT, NULL);
-    poski_vec_t yposki_view = poski_CreateVec((double*)(y_poski.getStorage().getValues().getData()), rows, STRIDE_UNIT, NULL);
-
-    TACO_BENCH(poski_MatMult(A_tunable, OP_NORMAL, 1, xposki_view, 0, yposki_view);,"POSKI",repeat,timevalue,true)
-
-    validate("POSKI", y_poski, yRef);
-
-    // tune
-    poski_TuneHint_MatMult(A_tunable, OP_NORMAL, 1, xposki_view, 0, yposki_view, ALWAYS_TUNE_AGGRESSIVELY);
-    poski_TuneMat(A_tunable);
-
-    TACO_BENCH(poski_MatMult(A_tunable, OP_NORMAL, 1, xposki_view, 0, yposki_view);,"POSKI Tuned",repeat,timevalue,true);
-
-    validate("POSKI Tuned", y_poski, yRef);
-
-    // deallocate everything -- commented because of some crashes
-//    poski_DestroyMat(A_tunable);
-//    poski_DestroyVec(xoski_view);
-//    poski_DestroyVec(yoski_view);
-//    poski_DestroyThreads(poski_thread);
-//    poski_Close();
-  }
-#else
-  if (products.at("poski")) {
-    cout << "Cannot use POSKI" << endl;
-  }
-#endif
-
       break;
     }
     case plus3: {
@@ -463,6 +396,11 @@ int main(int argc, char* argv[]) {
 #ifdef MKL
   if (products.at("mkl")) {
     exprToMKL(Expr,exprOperands,repeat,timevalue);
+  }
+#endif
+#ifdef POSKI
+  if (products.at("poski")) {
+    exprToPOSKI(Expr,exprOperands,repeat,timevalue);
   }
 #endif
 }
