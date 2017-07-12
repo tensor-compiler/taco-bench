@@ -131,6 +131,8 @@ int main(int argc, char* argv[]) {
           Expr=PLUS3;
         else if(Expression==3)
           Expr=MATTRANSMUL;
+        else if(Expression==4)
+          Expr=RESIDUAL;
         else
           return reportError("Incorrect Expression descriptor", 3);
       }
@@ -276,7 +278,8 @@ int main(int argc, char* argv[]) {
 
       break;
     }
-    case MATTRANSMUL: {
+    case MATTRANSMUL:
+    case RESIDUAL: {
       int rows,cols;
       readMatrixSize(inputFilenames.at("A"),rows,cols);
       Tensor<double> x({cols}, Dense);
@@ -285,19 +288,30 @@ int main(int argc, char* argv[]) {
       util::fillTensor(z,util::FillMethod::Dense);
       Tensor<double> Talpha("alpha");
       Tensor<double> Tbeta("beta");
+      Tensor<double> yRef({rows}, Dense);
+      Tensor<double> A=read(inputFilenames.at("A"),CSC,true);
+      IndexVar i, j;
       Talpha.insert({}, 42.0);
       Tbeta.insert({}, 24.0);
       Talpha.pack();
       Tbeta.pack();
-      Tensor<double> yRef({rows}, Dense);
-      Tensor<double> A=read(inputFilenames.at("A"),CSC,true);
-      IndexVar i, j;
-      yRef(i) = Talpha() * (A(j,i) * x(j)) + Tbeta() * z(i);
-      cout << "y=alpha*A^Tx + beta*z -- " << endl;
+      if (Expr==RESIDUAL) {
+        ((double*)(Talpha.getStorage().getValues().getData()))[0] = -1.0;
+        ((double*)(Tbeta.getStorage().getValues().getData()))[0] = 1.0;
+        Tensor<double> A=read(inputFilenames.at("A"),CSR,true);
+        yRef(i) = z(i) -(A(i,j) * x(j)) ;
+        cout << "y= b - Ax -- " << endl;
+      }
+      else {
+        Tensor<double> A=read(inputFilenames.at("A"),CSC,true);
+        yRef(i) = Talpha() * (A(j,i) * x(j)) + Tbeta() * z(i);
+        cout << "y=alpha*A^Tx + beta*z -- " << endl;
+      }
       TACO_BENCH(yRef.compile();, "Compile",1,timevalue,false)
       TACO_BENCH(yRef.assemble();, "Assemble",1,timevalue,false)
       TACO_BENCH(yRef.compute();, "Compute",repeat,timevalue,false)
 
+      A=read(inputFilenames.at("A"),CSC,true);
       exprOperands.insert({"yRef",yRef});
       exprOperands.insert({"A",A});
       exprOperands.insert({"x",x});

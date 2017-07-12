@@ -115,7 +115,8 @@ using namespace std;
 
         break;
       }
-      case MATTRANSMUL: {
+      case MATTRANSMUL:
+      case RESIDUAL: {
         char matdescra[6] = "G  C ";
          int rows=exprOperands.at("A").getDimension(0);
          int cols=exprOperands.at("A").getDimension(1);
@@ -135,17 +136,23 @@ using namespace std;
 
          double alpha = ((double*)(exprOperands.at("alpha").getStorage().getValues().getData()))[0];
          double beta = ((double*)(exprOperands.at("beta").getStorage().getValues().getData()))[0];
-         char transa = 'T';
          double* yvals=((double*)(y_mkl.getStorage().getValues().getData()));
          double* zvals=((double*)(exprOperands.at("z").getStorage().getValues().getData()));
 
-         for (auto k=0; k<rows; k++) {yvals[k]=zvals[k];} ;
-
-         TACO_BENCH(for (auto k=0; k<rows; k++) {yvals[k]=zvals[k];} ;
-                    mkl_dcscmv(&transa, &rows, &cols, &alpha, matdescra, a_CSC, ja_CSC, pointerB,
-                               pointerE, (double*)(exprOperands.at("x").getStorage().getValues().getData()),
-                               &beta, (double*)(y_mkl.getStorage().getValues().getData()));,
-                    "MKL", repeat,timevalue,true)
+         if (Expr==MATTRANSMUL) {
+           char transa = 'T';
+           TACO_BENCH(for (auto k=0; k<rows; k++) {yvals[k]=zvals[k];} ;
+                      mkl_dcscmv(&transa, &rows, &cols, &alpha, matdescra, a_CSC, ja_CSC, pointerB,
+                                 pointerE, (double*)(exprOperands.at("x").getStorage().getValues().getData()),
+                                 &beta, (double*)(y_mkl.getStorage().getValues().getData()));,
+                      "MKL", repeat,timevalue,true) }
+         else {
+           char transa = 'N';
+           TACO_BENCH(for (auto k=0; k<rows; k++) {yvals[k]=zvals[k];} ;
+                      mkl_dcscmv(&transa, &rows, &cols, &alpha, matdescra, a_CSC, ja_CSC, pointerB,
+                                 pointerE, (double*)(exprOperands.at("x").getStorage().getValues().getData()),
+                                 &beta, (double*)(y_mkl.getStorage().getValues().getData()));,
+                      "MKL", repeat,timevalue,true) }
 
          validate("MKL", y_mkl, exprOperands.at("yRef"));
 

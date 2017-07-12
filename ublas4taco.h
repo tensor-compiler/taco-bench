@@ -74,7 +74,8 @@ typedef boost::numeric::ublas::vector<double> UBlasDenseVector;
         validate("UBLAS", A_ublas, exprOperands.at("ARef"));
         break;
       }
-      case MATTRANSMUL: {
+      case MATTRANSMUL:
+      case RESIDUAL: {
         int rows=exprOperands.at("A").getDimension(0);
         int cols=exprOperands.at("A").getDimension(1);
         UBlasSparse Aublas(rows,cols);
@@ -86,7 +87,10 @@ typedef boost::numeric::ublas::vector<double> UBlasDenseVector;
         double alpha = ((double*)(exprOperands.at("alpha").getStorage().getValues().getData()))[0];
         double beta = ((double*)(exprOperands.at("beta").getStorage().getValues().getData()))[0];
 
-        TACO_BENCH(boost::numeric::ublas::axpy_prod(xublas, Aublas, tmpublas, true); yublas = alpha * tmpublas + beta * zublas;,"UBLAS",repeat,timevalue,true);
+        if (Expr==MATTRANSMUL) {
+          TACO_BENCH(boost::numeric::ublas::axpy_prod(xublas, Aublas, tmpublas, true); yublas = alpha * tmpublas + beta * zublas;,"UBLAS",repeat,timevalue,true); }
+        else {
+          TACO_BENCH(boost::numeric::ublas::axpy_prod(Aublas, xublas, tmpublas, true); yublas = zublas - tmpublas ;,"UBLAS",repeat,timevalue,true); }
 
         Tensor<double> y_ublas({rows}, Dense);
         UBLASTotaco(yublas,y_ublas);

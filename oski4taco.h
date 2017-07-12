@@ -91,7 +91,8 @@ extern "C" {
         }
         break;
       }
-      case MATTRANSMUL: {
+      case MATTRANSMUL:
+      case RESIDUAL: {
         int rows=exprOperands.at("A").getDimension(0);
         int cols=exprOperands.at("A").getDimension(1);
         double *a_CSC;
@@ -117,17 +118,28 @@ extern "C" {
         double* yvals=((double*)(y_oski.getStorage().getValues().getData()));
         double* zvals=((double*)(exprOperands.at("z").getStorage().getValues().getData()));
 
-        TACO_BENCH(for (auto k=0; k<rows; k++) {yvals[k]=zvals[k];} ;
-                   oski_MatMult(Aoski, OP_TRANS, alpha, xoski, beta, yoski);,"OSKI",repeat,timevalue,true);
+        if (Expr==MATTRANSMUL) {
+          TACO_BENCH(for (auto k=0; k<rows; k++) {yvals[k]=zvals[k];} ;
+                     oski_MatMult(Aoski, OP_TRANS, alpha, xoski, beta, yoski);,"OSKI",repeat,timevalue,true); }
+        else {
+          TACO_BENCH(for (auto k=0; k<rows; k++) {yvals[k]=zvals[k];} ;
+                     oski_MatMult(Aoski, OP_NORMAL, -1.0, xoski, 1.0, yoski);,"OSKI",repeat,timevalue,true); }
 
         validate("OSKI", y_oski, exprOperands.at("yRef"));
 
         // Tuned version
-        oski_SetHintMatMult(Aoski, OP_TRANS, alpha, SYMBOLIC_VEC, beta, SYMBOLIC_VEC, ALWAYS_TUNE_AGGRESSIVELY);
+        if (Expr==MATTRANSMUL) {
+          oski_SetHintMatMult(Aoski, OP_TRANS, alpha, SYMBOLIC_VEC, beta, SYMBOLIC_VEC, ALWAYS_TUNE_AGGRESSIVELY); }
+        else {
+          oski_SetHintMatMult(Aoski, OP_NORMAL, -1.0, SYMBOLIC_VEC, 1.0, SYMBOLIC_VEC, ALWAYS_TUNE_AGGRESSIVELY); }
         oski_TuneMat(Aoski);
 
-        TACO_BENCH(for (auto k=0; k<rows; k++) {yvals[k]=zvals[k];} ;
-                   oski_MatMult(Aoski, OP_TRANS, alpha, xoski, beta, yoski);,"OSKI Tuned",repeat,timevalue,true);
+        if (Expr==MATTRANSMUL) {
+          TACO_BENCH(for (auto k=0; k<rows; k++) {yvals[k]=zvals[k];} ;
+                     oski_MatMult(Aoski, OP_TRANS, alpha, xoski, beta, yoski);,"OSKI Tuned",repeat,timevalue,true); }
+        else {
+          TACO_BENCH(for (auto k=0; k<rows; k++) {yvals[k]=zvals[k];} ;
+                     oski_MatMult(Aoski, OP_NORMAL, -1.0, xoski, 1.0, yoski);,"OSKI Tuned",repeat,timevalue,true); }
 
         validate("OSKI Tuned", y_oski, exprOperands.at("yRef"));
 

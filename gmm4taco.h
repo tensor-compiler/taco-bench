@@ -80,7 +80,8 @@ typedef gmm::col_matrix< gmm::wsvector<double> > GmmDynSparse;
         validate("GMM", A_gmm, exprOperands.at("ARef"));
         break;
       }
-      case MATTRANSMUL: {
+      case MATTRANSMUL:
+      case RESIDUAL: {
         int rows=exprOperands.at("A").getDimension(0);
         int cols=exprOperands.at("A").getDimension(1);
 
@@ -94,7 +95,10 @@ typedef gmm::col_matrix< gmm::wsvector<double> > GmmDynSparse;
         double alpha = ((double*)(exprOperands.at("alpha").getStorage().getValues().getData()))[0];
         double beta = ((double*)(exprOperands.at("beta").getStorage().getValues().getData()))[0];
 
-        TACO_BENCH(gmm::mult(gmm::transposed(Agmm), gmm::scaled(xgmm, alpha), gmm::scaled(zgmm, beta), ygmm);,"GMM",repeat,timevalue,true);
+        if (Expr==MATTRANSMUL) {
+          TACO_BENCH(gmm::mult(gmm::transposed(Agmm), gmm::scaled(xgmm, alpha), gmm::scaled(zgmm, beta), ygmm);,"GMM",repeat,timevalue,true); }
+        else {
+          TACO_BENCH(gmm::mult(Agmm, gmm::scaled(xgmm, -1.0), zgmm, ygmm);,"GMM",repeat,timevalue,true); }
 
         Tensor<double> y_gmm({rows}, Dense);
         GMMTotaco(ygmm,y_gmm);

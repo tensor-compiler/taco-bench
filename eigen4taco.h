@@ -80,7 +80,8 @@ typedef Eigen::SparseMatrix<double> EigenSparseMatrix;
         validate("Eigen", A_Eigen, exprOperands.at("ARef"));
         break;
       }
-      case MATTRANSMUL: {
+      case MATTRANSMUL:
+      case RESIDUAL: {
         int rows=exprOperands.at("A").getDimension(0);
         int cols=exprOperands.at("A").getDimension(1);
         DenseVector xEigen(cols);
@@ -95,7 +96,10 @@ typedef Eigen::SparseMatrix<double> EigenSparseMatrix;
         alpha = ((double*)(exprOperands.at("alpha").getStorage().getValues().getData()))[0];
         beta = ((double*)(exprOperands.at("beta").getStorage().getValues().getData()))[0];
 
-        TACO_BENCH(yEigen.noalias() = alpha *AEigen.transpose() * xEigen + beta * zEigen;,"Eigen",repeat,timevalue,true);
+        if (Expr==MATTRANSMUL) {
+          TACO_BENCH(yEigen.noalias() = alpha *AEigen.transpose() * xEigen + beta * zEigen;,"Eigen",repeat,timevalue,true);}
+        else {
+          TACO_BENCH(yEigen.noalias() = zEigen - AEigen * xEigen ;,"Eigen",repeat,timevalue,true); }
 
         Tensor<double> y_Eigen({rows}, Dense);
         EigenTotaco(yEigen,y_Eigen);
