@@ -54,7 +54,7 @@ typedef boost::numeric::ublas::vector<double> UBlasDenseVector;
         validate("UBLAS", y_ublas, exprOperands.at("yRef"));
         break;
       }
-      case plus3: {
+      case PLUS3: {
         int rows=exprOperands.at("ARef").getDimension(0);
         int cols=exprOperands.at("ARef").getDimension(1);
         UBlasSparse Aublas(rows,cols);

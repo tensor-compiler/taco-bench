@@ -10,8 +10,16 @@ using namespace std;
     cout << NAME << " time (ms)" << endl << TIMER << endl;      \
 }
 
+#define CHECK_PRODUCT(NAME) {                                   \
+    if (products.at(NAME)) {                                    \
+      cout << "tacoBench was not compiled with "<< NAME << " and will not use it" << endl; \
+      products.at(NAME)=false;                                  \
+    }                                                           \
+}
+
+
 // Enum of possible expressions to Benchmark
-enum BenchExpr {SpMV,plus3};
+enum BenchExpr {SpMV, PLUS3, MATTRANSMUL};
 
 // Compare two tensors
 bool compare(const Tensor<double>&Dst, const Tensor<double>&Ref) {

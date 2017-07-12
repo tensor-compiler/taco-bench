@@ -60,7 +60,7 @@ typedef Eigen::SparseMatrix<double> EigenSparseMatrix;
         validate("Eigen", y_Eigen, exprOperands.at("yRef"));
         break;
       }
-      case plus3: {
+      case PLUS3: {
         int rows=exprOperands.at("ARef").getDimension(0);
         int cols=exprOperands.at("ARef").getDimension(1);
         EigenSparseMatrix AEigen(rows,cols);

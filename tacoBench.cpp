@@ -100,12 +100,12 @@ int main(int argc, char* argv[]) {
   map<string,string> inputFilenames;
   taco::util::TimeResults timevalue;
   map<string,bool> products;
-  products.insert({"eigen",true});
-  products.insert({"gmm",true});
-  products.insert({"ublas",true});
-  products.insert({"oski",true});
-  products.insert({"poski",true});
-  products.insert({"mkl",true});
+  products.insert({"EIGEN",true});
+  products.insert({"GMM",true});
+  products.insert({"UBLAS",true});
+  products.insert({"OSKI",true});
+  products.insert({"POSKI",true});
+  products.insert({"MKL",true});
 
   if (argc < 2)
     return reportError("no arguments", 3);
@@ -128,7 +128,9 @@ int main(int argc, char* argv[]) {
         if (Expression==1)
           Expr=SpMV;
         else if(Expression==2)
-          Expr=plus3;
+          Expr=PLUS3;
+        else if(Expression==3)
+          Expr=MATTRANSMUL;
         else
           return reportError("Incorrect Expression descriptor", 3);
       }
@@ -154,6 +156,7 @@ int main(int argc, char* argv[]) {
         product.second=false;
       }
       for(int i=0; i<descriptor.size();i++) {
+        for (auto & c: descriptor[i]) c = toupper(c);
         products.at(descriptor[i])=true;
       }
     }
@@ -168,42 +171,24 @@ int main(int argc, char* argv[]) {
   }
 
   // Check products
-  if (products.at("eigen")){
 #ifndef EIGEN
-    cout << "tacoBench was not compiled with EIGEN and will not use it" << endl;
-    products.at("eigen")=false;
+  CHECK_PRODUCT("EIGEN");
 #endif
-  }
-  if (products.at("ublas")){
 #ifndef UBLAS
-    cout << "tacoBench was not compiled with UBLAS and will not use it" << endl;
-    products.at("ublas")=false;
+  CHECK_PRODUCT("UBLAS");
 #endif
-  }
-  if (products.at("gmm")){
 #ifndef GMM
-    cout << "tacoBench was not compiled with GMM and will not use it" << endl;
-    products.at("gmm")=false;
+  CHECK_PRODUCT("GMM");
 #endif
-  }
-  if (products.at("mkl")){
 #ifndef MKL
-    cout << "tacoBench was not compiled with MKL and will not use it" << endl;
-    products.at("mkl")=false;
+  CHECK_PRODUCT("MKL");
 #endif
-  }
-  if (products.at("poski")){
 #ifndef POSKI
-    cout << "tacoBench was not compiled with POSKI and will not use it" << endl;
-    products.at("poski")=false;
+  CHECK_PRODUCT("POSKI");
 #endif
-  }
-  if (products.at("oski")){
 #ifndef OSKI
-    cout << "tacoBench was not compiled with OSKI and will not use it" << endl;
-    products.at("oski")=false;
+  CHECK_PRODUCT("OSKI");
 #endif
-  }
 
   // taco Formats
   map<string,Format> TacoFormats;
@@ -246,7 +231,7 @@ int main(int argc, char* argv[]) {
 
       break;
     }
-    case plus3: {
+    case PLUS3: {
       int rows,cols;
       readMatrixSize(inputFilenames.at("B"),rows,cols);
       Tensor<double> B=read(inputFilenames.at("B"),CSC,true);
@@ -291,37 +276,41 @@ int main(int argc, char* argv[]) {
 
       break;
     }
+    case MATTRANSMUL: {
+
+      break;
+    }
     default: {
       return reportError("Unknown Expression", 3);
     }
   }
 #ifdef EIGEN
-  if (products.at("eigen")) {
+  if (products.at("EIGEN")) {
     exprToEIGEN(Expr,exprOperands,repeat,timevalue);
   }
 #endif
 #ifdef UBLAS
-  if (products.at("ublas")) {
+  if (products.at("UBLAS")) {
     exprToUBLAS(Expr,exprOperands,repeat,timevalue);
   }
 #endif
 #ifdef GMM
-  if (products.at("gmm")) {
+  if (products.at("GMM")) {
     exprToGMM(Expr,exprOperands,repeat,timevalue);
   }
 #endif
 #ifdef MKL
-  if (products.at("mkl")) {
+  if (products.at("MKL")) {
     exprToMKL(Expr,exprOperands,repeat,timevalue);
   }
 #endif
 #ifdef POSKI
-  if (products.at("poski")) {
+  if (products.at("POSKI")) {
     exprToPOSKI(Expr,exprOperands,repeat,timevalue);
   }
 #endif
 #ifdef OSKI
-  if (products.at("oski")) {
+  if (products.at("OSKI")) {
     exprToOSKI(Expr,exprOperands,repeat,timevalue);
   }
 #endif

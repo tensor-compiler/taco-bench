@@ -39,7 +39,7 @@ using namespace std;
 
         break;
       }
-      case plus3: {
+      case PLUS3: {
         int rows=exprOperands.at("ARef").getDimension(0);
         int cols=exprOperands.at("ARef").getDimension(1);
         int nnz=exprOperands.at("B").getStorage().getValues().getSize();

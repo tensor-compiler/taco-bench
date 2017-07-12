@@ -60,7 +60,7 @@ typedef gmm::col_matrix< gmm::wsvector<double> > GmmDynSparse;
         validate("GMM++", y_gmm, exprOperands.at("yRef"));
         break;
       }
-      case plus3: {
+      case PLUS3: {
         int rows=exprOperands.at("ARef").getDimension(0);
         int cols=exprOperands.at("ARef").getDimension(1);
         GmmDynSparse Agmm(rows,cols);
