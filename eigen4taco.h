@@ -80,6 +80,29 @@ typedef Eigen::SparseMatrix<double> EigenSparseMatrix;
         validate("Eigen", A_Eigen, exprOperands.at("ARef"));
         break;
       }
+      case MATTRANSMUL: {
+        int rows=exprOperands.at("A").getDimension(0);
+        int cols=exprOperands.at("A").getDimension(1);
+        DenseVector xEigen(cols);
+        DenseVector zEigen(rows);
+        DenseVector yEigen(rows);
+        double alpha, beta;
+        EigenSparseMatrix AEigen(rows,cols);
+
+        tacoToEigen(exprOperands.at("x"),xEigen);
+        tacoToEigen(exprOperands.at("z"),zEigen);
+        tacoToEigen(exprOperands.at("A"),AEigen);
+        alpha = ((double*)(exprOperands.at("alpha").getStorage().getValues().getData()))[0];
+        beta = ((double*)(exprOperands.at("beta").getStorage().getValues().getData()))[0];
+
+        TACO_BENCH(yEigen.noalias() = alpha *AEigen.transpose() * xEigen + beta * zEigen;,"Eigen",repeat,timevalue,true);
+
+        Tensor<double> y_Eigen({rows}, Dense);
+        EigenTotaco(yEigen,y_Eigen);
+
+        validate("Eigen", y_Eigen, exprOperands.at("yRef"));
+        break;
+      }
       default:
         cout << " !! Expression not implemented for Eigen" << endl;
         break;

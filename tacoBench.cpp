@@ -277,7 +277,33 @@ int main(int argc, char* argv[]) {
       break;
     }
     case MATTRANSMUL: {
+      int rows,cols;
+      readMatrixSize(inputFilenames.at("A"),rows,cols);
+      Tensor<double> x({cols}, Dense);
+      util::fillTensor(x,util::FillMethod::Dense);
+      Tensor<double> z({rows}, Dense);
+      util::fillTensor(z,util::FillMethod::Dense);
+      Tensor<double> Talpha("alpha");
+      Tensor<double> Tbeta("beta");
+      Talpha.insert({}, 42.0);
+      Tbeta.insert({}, 24.0);
+      Talpha.pack();
+      Tbeta.pack();
+      Tensor<double> yRef({rows}, Dense);
+      Tensor<double> A=read(inputFilenames.at("A"),CSC,true);
+      IndexVar i, j;
+      yRef(i) = Talpha() * (A(j,i) * x(j)) + Tbeta() * z(i);
+      cout << "y=alpha*A^Tx + beta*z -- " << endl;
+      TACO_BENCH(yRef.compile();, "Compile",1,timevalue,false)
+      TACO_BENCH(yRef.assemble();, "Assemble",1,timevalue,false)
+      TACO_BENCH(yRef.compute();, "Compute",repeat,timevalue,false)
 
+      exprOperands.insert({"yRef",yRef});
+      exprOperands.insert({"A",A});
+      exprOperands.insert({"x",x});
+      exprOperands.insert({"z",z});
+      exprOperands.insert({"alpha",Talpha});
+      exprOperands.insert({"beta",Tbeta});
       break;
     }
     default: {

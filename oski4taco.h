@@ -91,6 +91,48 @@ extern "C" {
         }
         break;
       }
+      case MATTRANSMUL: {
+        int rows=exprOperands.at("A").getDimension(0);
+        int cols=exprOperands.at("A").getDimension(1);
+        double *a_CSC;
+        int* ia_CSC;
+        int* ja_CSC;
+        getCSCArrays(exprOperands.at("A"),&ia_CSC,&ja_CSC,&a_CSC);
+        oski_matrix_t Aoski;
+        oski_vecview_t xoski, yoski, zoski;
+        oski_Init();
+        Aoski = oski_CreateMatCSC(ia_CSC,ja_CSC,a_CSC,
+                                  rows, cols, SHARE_INPUTMAT, 1, INDEX_ZERO_BASED);
+        xoski = oski_CreateVecView((double*)(exprOperands.at("x").getStorage().getValues().getData()),
+                                   cols, STRIDE_UNIT);
+        zoski = oski_CreateVecView((double*)(exprOperands.at("z").getStorage().getValues().getData()),
+                                   rows, STRIDE_UNIT);
+        Tensor<double> y_oski({rows}, Dense);
+        y_oski.pack();
+        yoski = oski_CreateVecView((double*)(y_oski.getStorage().getValues().getData()),
+                                   rows, STRIDE_UNIT);
+        double alpha = ((double*)(exprOperands.at("alpha").getStorage().getValues().getData()))[0];
+        double beta = ((double*)(exprOperands.at("beta").getStorage().getValues().getData()))[0];
+
+        double* yvals=((double*)(y_oski.getStorage().getValues().getData()));
+        double* zvals=((double*)(exprOperands.at("z").getStorage().getValues().getData()));
+
+        TACO_BENCH(for (auto k=0; k<rows; k++) {yvals[k]=zvals[k];} ;
+                   oski_MatMult(Aoski, OP_TRANS, alpha, xoski, beta, yoski);,"OSKI",repeat,timevalue,true);
+
+        validate("OSKI", y_oski, exprOperands.at("yRef"));
+
+        // Tuned version
+        oski_SetHintMatMult(Aoski, OP_TRANS, alpha, SYMBOLIC_VEC, beta, SYMBOLIC_VEC, ALWAYS_TUNE_AGGRESSIVELY);
+        oski_TuneMat(Aoski);
+
+        TACO_BENCH(for (auto k=0; k<rows; k++) {yvals[k]=zvals[k];} ;
+                   oski_MatMult(Aoski, OP_TRANS, alpha, xoski, beta, yoski);,"OSKI Tuned",repeat,timevalue,true);
+
+        validate("OSKI Tuned", y_oski, exprOperands.at("yRef"));
+
+        break;
+      }
       default:
         cout << " !! Expression not implemented for OSKI" << endl;
         break;

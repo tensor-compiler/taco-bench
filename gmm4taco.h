@@ -80,6 +80,28 @@ typedef gmm::col_matrix< gmm::wsvector<double> > GmmDynSparse;
         validate("GMM", A_gmm, exprOperands.at("ARef"));
         break;
       }
+      case MATTRANSMUL: {
+        int rows=exprOperands.at("A").getDimension(0);
+        int cols=exprOperands.at("A").getDimension(1);
+
+        GmmDynSparse Agmm_tmp(rows,cols);
+        tacoToGMM(exprOperands.at("A"),Agmm_tmp);
+        GmmSparse Agmm(rows,cols);
+        gmm::copy(Agmm_tmp, Agmm);
+        std::vector<double> xgmm(cols), ygmm(rows), zgmm(rows);
+        tacoToGMM(exprOperands.at("x"),xgmm);
+        tacoToGMM(exprOperands.at("z"),zgmm);
+        double alpha = ((double*)(exprOperands.at("alpha").getStorage().getValues().getData()))[0];
+        double beta = ((double*)(exprOperands.at("beta").getStorage().getValues().getData()))[0];
+
+        TACO_BENCH(gmm::mult(gmm::transposed(Agmm), gmm::scaled(xgmm, alpha), gmm::scaled(zgmm, beta), ygmm);,"GMM",repeat,timevalue,true);
+
+        Tensor<double> y_gmm({rows}, Dense);
+        GMMTotaco(ygmm,y_gmm);
+
+        validate("GMM++", y_gmm, exprOperands.at("yRef"));
+        break;
+      }
       default:
         cout << " !! Expression not implemented for GMM" << endl;
         break;

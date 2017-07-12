@@ -29,7 +29,7 @@ endif ()
 if (NOT DEFINED ENV{GMM_INCLUDE_DIR})
   message(WARNING "GMM++ not found and will not be used")
 else()
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGMM ")    
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGMM -DNDEBUG ")    
   include_directories($ENV{GMM_INCLUDE_DIR})
 endif ()
 

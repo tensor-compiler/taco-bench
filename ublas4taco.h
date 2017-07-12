@@ -74,6 +74,26 @@ typedef boost::numeric::ublas::vector<double> UBlasDenseVector;
         validate("UBLAS", A_ublas, exprOperands.at("ARef"));
         break;
       }
+      case MATTRANSMUL: {
+        int rows=exprOperands.at("A").getDimension(0);
+        int cols=exprOperands.at("A").getDimension(1);
+        UBlasSparse Aublas(rows,cols);
+        tacoToUBLAS(exprOperands.at("A"),Aublas);
+
+        UBlasDenseVector xublas(cols), zublas(rows), yublas(rows), tmpublas(rows);
+        tacoToUBLAS(exprOperands.at("x"),xublas);
+        tacoToUBLAS(exprOperands.at("z"),zublas);
+        double alpha = ((double*)(exprOperands.at("alpha").getStorage().getValues().getData()))[0];
+        double beta = ((double*)(exprOperands.at("beta").getStorage().getValues().getData()))[0];
+
+        TACO_BENCH(boost::numeric::ublas::axpy_prod(xublas, Aublas, tmpublas, true); yublas = alpha * tmpublas + beta * zublas;,"UBLAS",repeat,timevalue,true);
+
+        Tensor<double> y_ublas({rows}, Dense);
+        UBLASTotaco(yublas,y_ublas);
+
+        validate("UBLAS", y_ublas, exprOperands.at("yRef"));
+        break;
+      }
       default:
         cout << " !! Expression not implemented for UBLAS" << endl;
         break;
