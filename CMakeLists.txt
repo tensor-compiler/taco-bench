@@ -76,6 +76,15 @@ else()
   target_link_libraries(${PROJECT_NAME} " -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread -lm -ldl")
 endif ()
 
+# YOURS project
+if (NOT DEFINED ENV{YOURS_INCLUDE_DIR})
+  message(WARNING "YOURS not found and will not be used")
+else()
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DYOURS ")    
+# Add here dependancies to YOURS library/code
+# ...
+endif ()
+
 
 
    

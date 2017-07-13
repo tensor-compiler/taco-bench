@@ -17,6 +17,7 @@
 #include "mkl4taco.h"
 #include "poski4taco.h"
 #include "oski4taco.h"
+#include "yours4taco.h"
 
 using namespace taco;
 using namespace std;
@@ -68,9 +69,9 @@ static void printUsageInfo() {
             "Read a tensor from a .mtx file.");
   cout << endl;
   printFlag("p=<product>,<products>",
-            "Specify a list of products to use from: "
-            "eigen, gmm, ublas, oski, poski, mkl."
-            "(not specified launches all products");
+            "Specify a list of products to use from: \n "
+            "eigen, gmm, ublas, oski, poski, mkl and eventually yours. \n "
+            "(not specified launches all products)");
   cout << endl;
 }
 
@@ -116,6 +117,7 @@ int main(int argc, char* argv[]) {
   products.insert({"OSKI",true});
   products.insert({"POSKI",true});
   products.insert({"MKL",true});
+  products.insert({"YOURS",true});
 
   if (argc < 2)
     return reportError("no arguments", 3);
@@ -202,6 +204,9 @@ int main(int argc, char* argv[]) {
 #endif
 #ifndef OSKI
   CHECK_PRODUCT("OSKI");
+#endif
+#ifndef YOURS
+  CHECK_PRODUCT("YOURS");
 #endif
 
   // taco Formats
@@ -390,6 +395,11 @@ int main(int argc, char* argv[]) {
 #ifdef OSKI
   if (products.at("OSKI")) {
     exprToOSKI(Expr,exprOperands,repeat,timevalue);
+  }
+#endif
+#ifdef YOURS
+  if (products.at("YOURS")) {
+    exprToYOURS(Expr,exprOperands,repeat,timevalue);
   }
 #endif
 }
