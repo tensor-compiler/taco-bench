@@ -1,4 +1,3 @@
-
 #include "taco/tensor.h"
 
 using namespace taco;
@@ -41,15 +40,13 @@ typedef Eigen::Matrix<double,Eigen::Dynamic,Eigen::Dynamic, Eigen::RowMajor> Den
     }
   }
 
-  void EigenTotaco(const DenseVector& src, Tensor<double>& dst)
-  {
+  void EigenTotaco(const DenseVector& src, Tensor<double>& dst)  {
     for (int j=0; j<src.rows(); ++j)
       dst.insert({j}, src(j));
     dst.pack();
   }
 
-  void tacoToEigen(const Tensor<double>& src, DenseVector& dst)
-  {
+  void tacoToEigen(const Tensor<double>& src, DenseVector& dst)  {
     for (auto& value : iterate<double>(src))
       dst(value.first[0]) = value.second;
   }

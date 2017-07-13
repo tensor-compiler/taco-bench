@@ -4,17 +4,16 @@ using namespace taco;
 using namespace std;
 
 #ifdef GMM
-#ifdef GMM
 #include "gmm/gmm.h"
 typedef gmm::csc_matrix<double> GmmSparse;
 typedef gmm::col_matrix< gmm::wsvector<double> > GmmDynSparse;
-#endif
+typedef gmm::linalg_traits<gmm::wsvector<double>>::const_iterator GmmIterator;
 
   void GMMTotaco(const GmmDynSparse& src, Tensor<double>& dst) {
     for (int j = 0; j < gmm::mat_ncols(src); ++j) {
       typename gmm::linalg_traits<GmmDynSparse>::const_sub_col_type col = mat_const_col(src, j);
-      typename gmm::linalg_traits<gmm::wsvector<double>>::const_iterator it1 = vect_const_begin(col);
-      typename gmm::linalg_traits<gmm::wsvector<double>>::const_iterator ite1 = vect_const_end(col);
+      GmmIterator it1 = vect_const_begin(col);
+      GmmIterator ite1 = vect_const_end(col);
       while (it1 != ite1) {
         dst.insert({(int)(it1.index()),j},*it1);
         ++it1;

@@ -1,4 +1,3 @@
-
 #include "taco/tensor.h"
 
 using namespace taco;

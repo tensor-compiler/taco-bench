@@ -30,12 +30,18 @@ static void printFlag(string flag, string text) {
   size_t column = flagString.size();
   vector<string> words = util::split(text, " ");
   for (auto& word : words) {
-    if (column + word.size()+1 >= columnEnd) {
+    if (word=="\n") {
       cout << endl << util::repeat(" ", descriptionStart);
       column = descriptionStart;
     }
-    column += word.size()+1;
-    cout << word << " ";
+    else {
+      if (column + word.size()+1 >= columnEnd) {
+        cout << endl << util::repeat(" ", descriptionStart);
+        column = descriptionStart;
+      }
+      column += word.size()+1;
+      cout << word << " ";
+    }
   }
   cout << endl;
 }
@@ -47,8 +53,12 @@ static void printUsageInfo() {
   cout << "  tacoBench -E=1 -r=10 -p=eigen,ublas  -i=A:/tmp/consph.mtx" << endl;
   cout << "Options:" << endl;
   printFlag("E=<expressionId>",
-            "Specify the expression Id to benchmark from: "
-            "   1 : SpMV y(i)=A(i,j)*x(j) ");
+            "Specify the expression Id to benchmark from: \n"
+            "   1: SpMV         y(i) = A(i,j)*x(j) \n"
+            "   2: PLUS3       A(i,j) = B(i,j) + C(i,j) + D(i,j) \n"
+            "   3: MATTRANSMUL y = alpha*A^Tx + beta*z \n"
+            "   4: RESIDUAL    y(i) = b(i) - A(i,j)*x(j) \n"
+            "   5: SDDMM       A = B o (CxD) ");
   cout << endl;
   printFlag("r=<repeat>",
             "Time compilation, assembly and <repeat> times computation "
@@ -232,7 +242,6 @@ int main(int argc, char* argv[]) {
       exprOperands.insert({"yRef",yRef});
       exprOperands.insert({"A",A});
       exprOperands.insert({"x",x});
-
       break;
     }
     case PLUS3: {
@@ -277,7 +286,6 @@ int main(int argc, char* argv[]) {
       exprOperands.insert({"B",B});
       exprOperands.insert({"C",C});
       exprOperands.insert({"D",D});
-
       break;
     }
     case MATTRANSMUL:

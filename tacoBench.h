@@ -21,48 +21,44 @@ using namespace std;
 // Enum of possible expressions to Benchmark
 enum BenchExpr {SpMV, PLUS3, MATTRANSMUL, RESIDUAL, SDDMM};
 
-// Compare two tensors
+// Compare two tensors of different formats
 bool compare(const Tensor<double>&Dst, const Tensor<double>&Ref) {
   if (Dst.getDimensions() != Ref.getDimensions()) {
     return false;
   }
 
-  {
-    std::set<std::vector<int>> coords;
-    for (const auto& val : Dst) {
-      if (!coords.insert(val.first).second) {
-        return false;
-      }
+  std::set<std::vector<int>> coords;
+  for (const auto& val : Dst) {
+    if (!coords.insert(val.first).second) {
+      return false;
     }
   }
 
-  vector<std::pair<std::vector<int>,double>> vals;
+  vector<std::pair<std::vector<int>,double>> valsDst;
   for (const auto& val : Dst) {
     if (val.second != 0) {
-      vals.push_back(val);
+      valsDst.push_back(val);
     }
   }
 
-  vector<std::pair<std::vector<int>,double>> expected;
+  vector<std::pair<std::vector<int>,double>> valsRef;
   for (const auto& val : Ref) {
     if (val.second != 0) {
-      expected.push_back(val);
+      valsRef.push_back(val);
     }
   }
-  std::sort(expected.begin(), expected.end());
-  std::sort(vals.begin(), vals.end());
-  return vals == expected;
+  std::sort(valsRef.begin(), valsRef.end());
+  std::sort(valsDst.begin(), valsDst.end());
+  return valsDst == valsRef;
 }
 
 void validate (string name, const Tensor<double>& Dst, const Tensor<double>& Ref) {
   if (Dst.getFormat()==Ref.getFormat()) {
-    if (!equals (Dst, Ref)) {
+    if (!equals (Dst, Ref))
       cout << "\033[1;31m  Validation Error with " << name << " \033[0m" << endl;
-    }
   }
   else {
-    if (!compare(Dst,Ref)) {
+    if (!compare(Dst,Ref))
       cout << "\033[1;31m  Validation Error with " << name << " \033[0m" << endl;
-    }
   }
 }

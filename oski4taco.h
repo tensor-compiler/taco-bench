@@ -8,26 +8,37 @@ extern "C" {
 #include <oski/oski.h>
 }
 
+  void tacoToOSKI(const Tensor<double>& src, oski_matrix_t& dst) {
+    int rows=src.getDimension(0);
+    int cols=src.getDimension(1);
+    double *a_CSC;
+    int* ia_CSC;
+    int* ja_CSC;
+    getCSCArrays(src,&ia_CSC,&ja_CSC,&a_CSC);
+    dst = oski_CreateMatCSC(ia_CSC,ja_CSC,a_CSC,
+                            rows, cols, SHARE_INPUTMAT, 1, INDEX_ZERO_BASED);
+  }
+
+  void tacoToOSKI(const Tensor<double>& src, oski_vecview_t& dst) {
+    int cols=src.getDimension(0);
+    dst = oski_CreateVecView((double*)(src.getStorage().getValues().getData()),
+                             cols, STRIDE_UNIT);
+  }
+
   void exprToOSKI(BenchExpr Expr, map<string,Tensor<double>> exprOperands,int repeat, taco::util::TimeResults timevalue) {
     switch(Expr) {
       case SpMV: {
         int rows=exprOperands.at("A").getDimension(0);
         int cols=exprOperands.at("A").getDimension(1);
-        double *a_CSC;
-        int* ia_CSC;
-        int* ja_CSC;
-        getCSCArrays(exprOperands.at("A"),&ia_CSC,&ja_CSC,&a_CSC);
         oski_matrix_t Aoski;
         oski_vecview_t xoski, yoski;
         oski_Init();
-        Aoski = oski_CreateMatCSC(ia_CSC,ja_CSC,a_CSC,
-                                  rows, cols, SHARE_INPUTMAT, 1, INDEX_ZERO_BASED);
-        xoski = oski_CreateVecView((double*)(exprOperands.at("x").getStorage().getValues().getData()),
-                                   cols, STRIDE_UNIT);
+
+        tacoToOSKI(exprOperands.at("A"),Aoski);
+        tacoToOSKI(exprOperands.at("x"),xoski);
         Tensor<double> y_oski({rows}, Dense);
         y_oski.pack();
-        yoski = oski_CreateVecView((double*)(y_oski.getStorage().getValues().getData()),
-                                   rows, STRIDE_UNIT);
+        tacoToOSKI(y_oski,yoski);
 
         TACO_BENCH( oski_MatMult(Aoski, OP_NORMAL, 1, xoski, 0, yoski);,"OSKI",repeat,timevalue,true );
 
@@ -95,23 +106,16 @@ extern "C" {
       case RESIDUAL: {
         int rows=exprOperands.at("A").getDimension(0);
         int cols=exprOperands.at("A").getDimension(1);
-        double *a_CSC;
-        int* ia_CSC;
-        int* ja_CSC;
-        getCSCArrays(exprOperands.at("A"),&ia_CSC,&ja_CSC,&a_CSC);
         oski_matrix_t Aoski;
         oski_vecview_t xoski, yoski, zoski;
         oski_Init();
-        Aoski = oski_CreateMatCSC(ia_CSC,ja_CSC,a_CSC,
-                                  rows, cols, SHARE_INPUTMAT, 1, INDEX_ZERO_BASED);
-        xoski = oski_CreateVecView((double*)(exprOperands.at("x").getStorage().getValues().getData()),
-                                   cols, STRIDE_UNIT);
-        zoski = oski_CreateVecView((double*)(exprOperands.at("z").getStorage().getValues().getData()),
-                                   rows, STRIDE_UNIT);
+
+        tacoToOSKI(exprOperands.at("A"),Aoski);
+        tacoToOSKI(exprOperands.at("x"),xoski);
+        tacoToOSKI(exprOperands.at("z"),zoski);
         Tensor<double> y_oski({rows}, Dense);
         y_oski.pack();
-        yoski = oski_CreateVecView((double*)(y_oski.getStorage().getValues().getData()),
-                                   rows, STRIDE_UNIT);
+        tacoToOSKI(y_oski,yoski);
         double alpha = ((double*)(exprOperands.at("alpha").getStorage().getValues().getData()))[0];
         double beta = ((double*)(exprOperands.at("beta").getStorage().getValues().getData()))[0];
 

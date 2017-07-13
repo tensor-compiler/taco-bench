@@ -1,4 +1,3 @@
-
 #include "taco/tensor.h"
 
 using namespace taco;
@@ -118,45 +117,41 @@ using namespace std;
       case MATTRANSMUL:
       case RESIDUAL: {
         char matdescra[6] = "G  C ";
-         int rows=exprOperands.at("A").getDimension(0);
-         int cols=exprOperands.at("A").getDimension(1);
-         int ptrsize = exprOperands.at("A").getStorage().getIndex().getSize();
-         double *a_CSC;
-         int* ia_CSC;
-         int* ja_CSC;
-         getCSCArrays(exprOperands.at("A"),&ia_CSC,&ja_CSC,&a_CSC);
-         int* pointerB=new int[ptrsize-1];
-         int* pointerE=new int[ptrsize-1];
-         for (int i=0; i<ptrsize-1; i++) {
-           pointerB[i]=ia_CSC[i];
-           pointerE[i]=ia_CSC[i+1];
-         }
-         Tensor<double> y_mkl({rows}, Dense);
-         y_mkl.pack();
+        int rows=exprOperands.at("A").getDimension(0);
+        int cols=exprOperands.at("A").getDimension(1);
+        int ptrsize = exprOperands.at("A").getStorage().getIndex().getSize();
+        double *a_CSC;
+        int* ia_CSC;
+        int* ja_CSC;
+        getCSCArrays(exprOperands.at("A"),&ia_CSC,&ja_CSC,&a_CSC);
+        int* pointerB=new int[ptrsize-1];
+        int* pointerE=new int[ptrsize-1];
+        for (int i=0; i<ptrsize-1; i++) {
+          pointerB[i]=ia_CSC[i];
+          pointerE[i]=ia_CSC[i+1];
+        }
+        Tensor<double> y_mkl({rows}, Dense);
+        y_mkl.pack();
 
-         double alpha = ((double*)(exprOperands.at("alpha").getStorage().getValues().getData()))[0];
-         double beta = ((double*)(exprOperands.at("beta").getStorage().getValues().getData()))[0];
-         double* yvals=((double*)(y_mkl.getStorage().getValues().getData()));
-         double* zvals=((double*)(exprOperands.at("z").getStorage().getValues().getData()));
+        double alpha = ((double*)(exprOperands.at("alpha").getStorage().getValues().getData()))[0];
+        double beta = ((double*)(exprOperands.at("beta").getStorage().getValues().getData()))[0];
+        double* yvals=((double*)(y_mkl.getStorage().getValues().getData()));
+        double* zvals=((double*)(exprOperands.at("z").getStorage().getValues().getData()));
 
-         if (Expr==MATTRANSMUL) {
-           char transa = 'T';
-           TACO_BENCH(for (auto k=0; k<rows; k++) {yvals[k]=zvals[k];} ;
-                      mkl_dcscmv(&transa, &rows, &cols, &alpha, matdescra, a_CSC, ja_CSC, pointerB,
-                                 pointerE, (double*)(exprOperands.at("x").getStorage().getValues().getData()),
-                                 &beta, (double*)(y_mkl.getStorage().getValues().getData()));,
-                      "MKL", repeat,timevalue,true) }
-         else {
-           char transa = 'N';
-           TACO_BENCH(for (auto k=0; k<rows; k++) {yvals[k]=zvals[k];} ;
-                      mkl_dcscmv(&transa, &rows, &cols, &alpha, matdescra, a_CSC, ja_CSC, pointerB,
-                                 pointerE, (double*)(exprOperands.at("x").getStorage().getValues().getData()),
-                                 &beta, (double*)(y_mkl.getStorage().getValues().getData()));,
-                      "MKL", repeat,timevalue,true) }
+        char transa;
+        if (Expr==MATTRANSMUL)
+          transa = 'T';
+        else
+          transa = 'N';
+        TACO_BENCH(for (auto k=0; k<rows; k++) {yvals[k]=zvals[k];} ;
+        mkl_dcscmv(&transa, &rows, &cols, &alpha, matdescra, a_CSC, ja_CSC, pointerB,
+                   pointerE, (double*)(exprOperands.at("x").getStorage().getValues().getData()),
+                   &beta, (double*)(y_mkl.getStorage().getValues().getData()));,
+                   "MKL", repeat,timevalue,true)
 
-         validate("MKL", y_mkl, exprOperands.at("yRef"));
+        validate("MKL", y_mkl, exprOperands.at("yRef"));
 
-         break;
+        break;
       }
       default:
         cout << " !! Expression not implemented for MKL" << endl;
