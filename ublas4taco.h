@@ -8,7 +8,10 @@ using namespace std;
 #include <boost/numeric/ublas/vector.hpp>
 #include <boost/numeric/ublas/matrix_sparse.hpp>
 #include <boost/numeric/ublas/operation.hpp>
+#include <boost/numeric/ublas/matrix.hpp>
 typedef boost::numeric::ublas::compressed_matrix<double,boost::numeric::ublas::column_major> UBlasSparse;
+typedef boost::numeric::ublas::matrix<double,boost::numeric::ublas::column_major> UBlasColMajor;
+typedef boost::numeric::ublas::matrix<double,boost::numeric::ublas::row_major> UBlasRowMajor;
 typedef boost::numeric::ublas::vector<double> UBlasDenseVector;
 #endif
 
@@ -20,6 +23,18 @@ typedef boost::numeric::ublas::vector<double> UBlasDenseVector;
   }
 
   void tacoToUBLAS(const Tensor<double>& src, UBlasSparse& dst) {
+    for (auto& value : iterate<double>(src))
+      dst(value.first.at(0),value.first.at(1)) = value.second;
+  }
+
+  void tacoToUBLAS(const Tensor<double>& src, UBlasColMajor& dst) {
+    dst.resize(src.getDimension(0), src.getDimension(1), false);
+    for (auto& value : iterate<double>(src))
+      dst(value.first.at(0),value.first.at(1)) = value.second;
+  }
+
+  void tacoToUBLAS(const Tensor<double>& src, UBlasRowMajor& dst) {
+    dst.resize(src.getDimension(0), src.getDimension(1), false);
     for (auto& value : iterate<double>(src))
       dst(value.first.at(0),value.first.at(1)) = value.second;
   }
@@ -96,6 +111,26 @@ typedef boost::numeric::ublas::vector<double> UBlasDenseVector;
         UBLASTotaco(yublas,y_ublas);
 
         validate("UBLAS", y_ublas, exprOperands.at("yRef"));
+        break;
+      }
+      case SDDMM: {
+        int rows=exprOperands.at("ARef").getDimension(0);
+        int cols=exprOperands.at("ARef").getDimension(1);
+        UBlasSparse Aublas(rows,cols);
+        UBlasSparse Bublas(rows,cols);
+        UBlasRowMajor Cublas;
+        UBlasColMajor Dublas;
+
+        tacoToUBLAS(exprOperands.at("B"),Bublas);
+        tacoToUBLAS(exprOperands.at("C"),Cublas);
+        tacoToUBLAS(exprOperands.at("D"),Dublas);
+
+        TACO_BENCH(noalias(Aublas) = element_prod(Bublas, prod(Cublas, Dublas)) ;,"UBLAS",repeat,timevalue,true);
+
+        Tensor<double> A_ublas({rows,cols}, CSC);
+        UBLASTotaco(Aublas,A_ublas);
+
+        validate("UBLAS", A_ublas, exprOperands.at("ARef"));
         break;
       }
       default:

@@ -142,7 +142,7 @@ extern "C" {
                      poski_MatMult(A_tunable, OP_TRANS, alpha, xposki_view, beta, yposki_view);,"POSKI Tuned",repeat,timevalue,true); }
         else {
           TACO_BENCH(for (auto k=0; k<rows; k++) {yvals[k]=zvals[k];} ;
-                      poski_MatMult(A_tunable, OP_NORMAL, -1.0, xposki_view, 1.0, yposki_view);,"POSKI",repeat,timevalue,true) }
+                      poski_MatMult(A_tunable, OP_NORMAL, -1.0, xposki_view, 1.0, yposki_view);,"POSKI Tuned",repeat,timevalue,true) }
 
         validate("POSKI Tuned", y_poski, exprOperands.at("yRef"));
 

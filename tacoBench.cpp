@@ -133,6 +133,8 @@ int main(int argc, char* argv[]) {
           Expr=MATTRANSMUL;
         else if(Expression==4)
           Expr=RESIDUAL;
+        else if(Expression==5)
+          Expr=SDDMM;
         else
           return reportError("Incorrect Expression descriptor", 3);
       }
@@ -318,6 +320,34 @@ int main(int argc, char* argv[]) {
       exprOperands.insert({"z",z});
       exprOperands.insert({"alpha",Talpha});
       exprOperands.insert({"beta",Tbeta});
+      break;
+    }
+    case SDDMM: {
+      int rows,cols;
+      readMatrixSize(inputFilenames.at("B"),rows,cols);
+      Tensor<double> B=read(inputFilenames.at("B"),CSC,true);
+      Tensor<double> ARef("ARef",{rows,cols},CSC);
+
+      int Ksize=100;
+      Tensor<double> C("C",{rows,Ksize},Dense);
+      util::fillTensor(C,util::FillMethod::Dense);
+      Format densedenseColMajorMatrixFormat({Dense, Dense},{1,0});
+      Tensor<double> D("D",{Ksize,cols},densedenseColMajorMatrixFormat);
+      util::fillTensor(D,util::FillMethod::Dense);
+
+      IndexVar i, j, k;
+      ARef(i,k) = C(i,j)*D(j,k)*B(i,k);
+      std::cout << "A=B o (CxD) -- " << endl;
+
+      TACO_BENCH(ARef.compile();, "Compile",1,timevalue,false)
+      TACO_BENCH(ARef.assemble();,"Assemble",1,timevalue,false)
+      TACO_BENCH(ARef.compute();, "Compute",repeat, timevalue, true)
+
+      B=read(inputFilenames.at("B"),CSC,true);
+      exprOperands.insert({"ARef",ARef});
+      exprOperands.insert({"B",B});
+      exprOperands.insert({"C",C});
+      exprOperands.insert({"D",D});
       break;
     }
     default: {

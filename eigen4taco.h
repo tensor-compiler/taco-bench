@@ -8,6 +8,8 @@ using namespace std;
 #include <Eigen/Sparse>
 typedef Eigen::Matrix<double,Eigen::Dynamic,1> DenseVector;
 typedef Eigen::SparseMatrix<double> EigenSparseMatrix;
+typedef Eigen::Matrix<double,Eigen::Dynamic,Eigen::Dynamic> DenseMatrix;
+typedef Eigen::Matrix<double,Eigen::Dynamic,Eigen::Dynamic, Eigen::RowMajor> DenseRowMajorMatrix;
 
   void EigenTotaco(const EigenSparseMatrix& src, Tensor<double>& dst)
   {
@@ -25,6 +27,18 @@ typedef Eigen::SparseMatrix<double> EigenSparseMatrix;
       tripletList.push_back({value.first.at(0),value.first.at(1),value.second});
     }
     dst.setFromTriplets(tripletList.begin(), tripletList.end());
+  }
+
+  void tacoToEigen(const Tensor<double>& src, DenseMatrix& dst){
+    for (auto& value : iterate<double>(src)) {
+      dst(value.first.at(0),value.first.at(1)) = value.second;
+    }
+  }
+
+  void tacoToEigen(const Tensor<double>& src, DenseRowMajorMatrix& dst){
+    for (auto& value : iterate<double>(src)) {
+      dst(value.first.at(0),value.first.at(1)) = value.second;
+    }
   }
 
   void EigenTotaco(const DenseVector& src, Tensor<double>& dst)
@@ -105,6 +119,26 @@ typedef Eigen::SparseMatrix<double> EigenSparseMatrix;
         EigenTotaco(yEigen,y_Eigen);
 
         validate("Eigen", y_Eigen, exprOperands.at("yRef"));
+        break;
+      }
+      case SDDMM: {
+        int rows=exprOperands.at("ARef").getDimension(0);
+        int cols=exprOperands.at("ARef").getDimension(1);
+        EigenSparseMatrix AEigen(rows,cols);
+        EigenSparseMatrix BEigen(rows,cols);
+        DenseRowMajorMatrix CEigen(rows,100);
+        DenseMatrix DEigen(100,cols);
+
+        tacoToEigen(exprOperands.at("B"),BEigen);
+        tacoToEigen(exprOperands.at("C"),CEigen);
+        tacoToEigen(exprOperands.at("D"),DEigen);
+
+        TACO_BENCH(AEigen = BEigen.cwiseProduct(CEigen.lazyProduct(DEigen));,"Eigen",repeat,timevalue,true);
+
+        Tensor<double> A_Eigen({rows,cols}, CSC);
+        EigenTotaco(AEigen,A_Eigen);
+
+        validate("Eigen", A_Eigen, exprOperands.at("ARef"));
         break;
       }
       default:
