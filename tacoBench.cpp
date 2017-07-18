@@ -324,7 +324,7 @@ int main(int argc, char* argv[]) {
       }
       TACO_BENCH(yRef.compile();, "Compile",1,timevalue,false)
       TACO_BENCH(yRef.assemble();, "Assemble",1,timevalue,false)
-      TACO_BENCH(yRef.compute();, "Compute",repeat,timevalue,false)
+      TACO_BENCH(yRef.compute();, "Compute",repeat,timevalue,true)
 
       A=read(inputFilenames.at("A"),CSC,true);
       exprOperands.insert({"yRef",yRef});

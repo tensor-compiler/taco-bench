@@ -114,8 +114,7 @@ using namespace std;
 
         break;
       }
-      case MATTRANSMUL:
-      case RESIDUAL: {
+      case MATTRANSMUL: {
         char matdescra[6] = "G  C ";
         int rows=exprOperands.at("A").getDimension(0);
         int cols=exprOperands.at("A").getDimension(1);
@@ -138,13 +137,51 @@ using namespace std;
         double* yvals=((double*)(y_mkl.getStorage().getValues().getData()));
         double* zvals=((double*)(exprOperands.at("z").getStorage().getValues().getData()));
 
-        char transa;
-        if (Expr==MATTRANSMUL)
-          transa = 'T';
-        else
-          transa = 'N';
+        char transa = 'T';
         TACO_BENCH(for (auto k=0; k<rows; k++) {yvals[k]=zvals[k];} ;
         mkl_dcscmv(&transa, &rows, &cols, &alpha, matdescra, a_CSC, ja_CSC, pointerB,
+                   pointerE, (double*)(exprOperands.at("x").getStorage().getValues().getData()),
+                   &beta, (double*)(y_mkl.getStorage().getValues().getData()));,
+                   "MKL", repeat,timevalue,true)
+
+        validate("MKL", y_mkl, exprOperands.at("yRef"));
+
+        break;
+      }
+      case RESIDUAL: {
+        char matdescra[6] = "G  C ";
+        int rows=exprOperands.at("A").getDimension(0);
+        int cols=exprOperands.at("A").getDimension(1);
+        int nnz=exprOperands.at("A").getStorage().getValues().getSize();
+        // convert to CSR
+        Tensor<double> ACSR({rows,cols}, CSR);
+        for (auto& value : iterate<double>(exprOperands.at("A"))) {
+          ACSR.insert({value.first.at(0),value.first.at(1)},value.second);
+        }
+        ACSR.pack();
+        double *a_CSR;
+        int* ia_CSR;
+        int* ja_CSR;
+        getCSRArrays(ACSR,&ia_CSR,&ja_CSR,&a_CSR);
+        double alpha=-1.0;
+        double beta=1.0;
+
+        int* pointerB=new int[nnz];
+        int* pointerE=new int[nnz];
+        for (int i=0; i<nnz; i++) {
+          pointerB[i]=ia_CSR[i];
+          pointerE[i]=ia_CSR[i+1];
+        }
+
+        Tensor<double> y_mkl({rows}, Dense);
+        y_mkl.pack();
+
+        double* yvals=((double*)(y_mkl.getStorage().getValues().getData()));
+        double* zvals=((double*)(exprOperands.at("z").getStorage().getValues().getData()));
+
+        char transa = 'N';
+        TACO_BENCH(for (auto k=0; k<rows; k++) {yvals[k]=zvals[k];} ;
+        mkl_dcsrmv(&transa, &rows, &cols, &alpha, matdescra, a_CSR, ja_CSR, pointerB,
                    pointerE, (double*)(exprOperands.at("x").getStorage().getValues().getData()),
                    &beta, (double*)(y_mkl.getStorage().getValues().getData()));,
                    "MKL", repeat,timevalue,true)
