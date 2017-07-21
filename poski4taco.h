@@ -24,7 +24,7 @@ extern "C" {
 
     // default thread object
     poski_threadarg_t *poski_thread = poski_InitThreads();
-    poski_ThreadHints(poski_thread, NULL, POSKI_OPENMP, 4);
+    poski_ThreadHints(poski_thread, NULL, POSKI_OPENMP, 12);
     poski_partitionarg_t *mat_partition = NULL;
 
     // create CSR matrix

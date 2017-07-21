@@ -8,20 +8,26 @@ using namespace std;
 #include <boost/numeric/ublas/matrix_sparse.hpp>
 #include <boost/numeric/ublas/operation.hpp>
 #include <boost/numeric/ublas/matrix.hpp>
-typedef boost::numeric::ublas::compressed_matrix<double,boost::numeric::ublas::column_major> UBlasSparse;
+typedef boost::numeric::ublas::compressed_matrix<double,boost::numeric::ublas::column_major> UBlasCSC;
+typedef boost::numeric::ublas::compressed_matrix<double,boost::numeric::ublas::row_major> UBlasCSR;
 typedef boost::numeric::ublas::matrix<double,boost::numeric::ublas::column_major> UBlasColMajor;
 typedef boost::numeric::ublas::matrix<double,boost::numeric::ublas::row_major> UBlasRowMajor;
 typedef boost::numeric::ublas::vector<double> UBlasDenseVector;
 #endif
 
-  void UBLASTotaco(const UBlasSparse& src, Tensor<double>& dst){
+  void UBLASTotaco(const UBlasCSC& src, Tensor<double>& dst){
     for (auto it1 = src.begin2(); it1 != src.end2(); it1++ )
       for (auto it2 = it1.begin(); it2 != it1.end(); ++it2 )
         dst.insert({(int)(it2.index1()),(int)(it2.index2())},*it2);
     dst.pack();
   }
 
-  void tacoToUBLAS(const Tensor<double>& src, UBlasSparse& dst) {
+  void tacoToUBLAS(const Tensor<double>& src, UBlasCSC& dst) {
+    for (auto& value : iterate<double>(src))
+      dst(value.first.at(0),value.first.at(1)) = value.second;
+  }
+
+  void tacoToUBLAS(const Tensor<double>& src, UBlasCSR& dst) {
     for (auto& value : iterate<double>(src))
       dst(value.first.at(0),value.first.at(1)) = value.second;
   }
@@ -54,7 +60,7 @@ typedef boost::numeric::ublas::vector<double> UBlasDenseVector;
       case SpMV: {
         int rows=exprOperands.at("A").getDimension(0);
         int cols=exprOperands.at("A").getDimension(1);
-        UBlasSparse Aublas(rows,cols);
+        UBlasCSR Aublas(rows,cols);
         tacoToUBLAS(exprOperands.at("A"),Aublas);
 
         UBlasDenseVector xublas(cols), yublas(rows);
@@ -71,10 +77,10 @@ typedef boost::numeric::ublas::vector<double> UBlasDenseVector;
       case PLUS3: {
         int rows=exprOperands.at("ARef").getDimension(0);
         int cols=exprOperands.at("ARef").getDimension(1);
-        UBlasSparse Aublas(rows,cols);
-        UBlasSparse Bublas(rows,cols);
-        UBlasSparse Cublas(rows,cols);
-        UBlasSparse Dublas(rows,cols);
+        UBlasCSC Aublas(rows,cols);
+        UBlasCSC Bublas(rows,cols);
+        UBlasCSC Cublas(rows,cols);
+        UBlasCSC Dublas(rows,cols);
 
         tacoToUBLAS(exprOperands.at("B"),Bublas);
         tacoToUBLAS(exprOperands.at("C"),Cublas);
@@ -88,11 +94,10 @@ typedef boost::numeric::ublas::vector<double> UBlasDenseVector;
         validate("UBLAS", A_ublas, exprOperands.at("ARef"));
         break;
       }
-      case MATTRANSMUL:
-      case RESIDUAL: {
+      case MATTRANSMUL: {
         int rows=exprOperands.at("A").getDimension(0);
         int cols=exprOperands.at("A").getDimension(1);
-        UBlasSparse Aublas(rows,cols);
+        UBlasCSC Aublas(rows,cols);
         tacoToUBLAS(exprOperands.at("A"),Aublas);
 
         UBlasDenseVector xublas(cols), zublas(rows), yublas(rows), tmpublas(rows);
@@ -101,10 +106,27 @@ typedef boost::numeric::ublas::vector<double> UBlasDenseVector;
         double alpha = ((double*)(exprOperands.at("alpha").getStorage().getValues().getData()))[0];
         double beta = ((double*)(exprOperands.at("beta").getStorage().getValues().getData()))[0];
 
-        if (Expr==MATTRANSMUL) {
-          TACO_BENCH(boost::numeric::ublas::axpy_prod(xublas, Aublas, tmpublas, true); yublas = alpha * tmpublas + beta * zublas;,"UBLAS",repeat,timevalue,true); }
-        else {
-          TACO_BENCH(boost::numeric::ublas::axpy_prod(Aublas, xublas, tmpublas, true); yublas = zublas - tmpublas ;,"UBLAS",repeat,timevalue,true); }
+        TACO_BENCH(boost::numeric::ublas::axpy_prod(xublas, Aublas, tmpublas, true); yublas = alpha * tmpublas + beta * zublas;,"UBLAS",repeat,timevalue,true);
+
+        Tensor<double> y_ublas({rows}, Dense);
+        UBLASTotaco(yublas,y_ublas);
+
+        validate("UBLAS", y_ublas, exprOperands.at("yRef"));
+        break;
+      }
+      case RESIDUAL: {
+        int rows=exprOperands.at("A").getDimension(0);
+        int cols=exprOperands.at("A").getDimension(1);
+        UBlasCSR Aublas(rows,cols);
+        tacoToUBLAS(exprOperands.at("A"),Aublas);
+
+        UBlasDenseVector xublas(cols), zublas(rows), yublas(rows), tmpublas(rows);
+        tacoToUBLAS(exprOperands.at("x"),xublas);
+        tacoToUBLAS(exprOperands.at("z"),zublas);
+        double alpha = ((double*)(exprOperands.at("alpha").getStorage().getValues().getData()))[0];
+        double beta = ((double*)(exprOperands.at("beta").getStorage().getValues().getData()))[0];
+
+        TACO_BENCH(boost::numeric::ublas::axpy_prod(Aublas, xublas, tmpublas, true); yublas = zublas - tmpublas ;,"UBLAS",repeat,timevalue,true);
 
         Tensor<double> y_ublas({rows}, Dense);
         UBLASTotaco(yublas,y_ublas);
@@ -115,8 +137,8 @@ typedef boost::numeric::ublas::vector<double> UBlasDenseVector;
       case SDDMM: {
         int rows=exprOperands.at("ARef").getDimension(0);
         int cols=exprOperands.at("ARef").getDimension(1);
-        UBlasSparse Aublas(rows,cols);
-        UBlasSparse Bublas(rows,cols);
+        UBlasCSC Aublas(rows,cols);
+        UBlasCSC Bublas(rows,cols);
         UBlasRowMajor Cublas;
         UBlasColMajor Dublas;
 

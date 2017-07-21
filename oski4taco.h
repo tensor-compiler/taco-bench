@@ -11,12 +11,21 @@ extern "C" {
   void tacoToOSKI(const Tensor<double>& src, oski_matrix_t& dst) {
     int rows=src.getDimension(0);
     int cols=src.getDimension(1);
-    double *a_CSC;
-    int* ia_CSC;
-    int* ja_CSC;
-    getCSCArrays(src,&ia_CSC,&ja_CSC,&a_CSC);
-    dst = oski_CreateMatCSC(ia_CSC,ja_CSC,a_CSC,
-                            rows, cols, SHARE_INPUTMAT, 1, INDEX_ZERO_BASED);
+    if (src.getFormat() == CSC) {
+      double *a_CSC;
+      int* ia_CSC;
+      int* ja_CSC;
+      getCSCArrays(src,&ia_CSC,&ja_CSC,&a_CSC);
+      dst = oski_CreateMatCSC(ia_CSC,ja_CSC,a_CSC,
+                              rows, cols, SHARE_INPUTMAT, 1, INDEX_ZERO_BASED);
+    } else {
+      double *a_CSR;
+      int* ia_CSR;
+      int* ja_CSR;
+      getCSRArrays(src,&ia_CSR,&ja_CSR,&a_CSR);
+      dst = oski_CreateMatCSR(ia_CSR,ja_CSR,a_CSR,
+                              rows, cols, SHARE_INPUTMAT, 1, INDEX_ZERO_BASED);
+    }
   }
 
   void tacoToOSKI(const Tensor<double>& src, oski_vecview_t& dst) {

@@ -5,13 +5,14 @@ using namespace std;
 
 #ifdef GMM
 #include "gmm/gmm.h"
-typedef gmm::csc_matrix<double> GmmSparse;
-typedef gmm::col_matrix< gmm::wsvector<double> > GmmDynSparse;
+typedef gmm::csc_matrix<double> GmmCSC;
+typedef gmm::csr_matrix<double> GmmCSR;
+typedef gmm::col_matrix< gmm::wsvector<double> > GmmSparse;
 typedef gmm::linalg_traits<gmm::wsvector<double>>::const_iterator GmmIterator;
 
-  void GMMTotaco(const GmmDynSparse& src, Tensor<double>& dst) {
+  void GMMTotaco(const GmmSparse& src, Tensor<double>& dst) {
     for (int j = 0; j < gmm::mat_ncols(src); ++j) {
-      typename gmm::linalg_traits<GmmDynSparse>::const_sub_col_type col = mat_const_col(src, j);
+      typename gmm::linalg_traits<GmmSparse>::const_sub_col_type col = mat_const_col(src, j);
       GmmIterator it1 = vect_const_begin(col);
       GmmIterator ite1 = vect_const_end(col);
       while (it1 != ite1) {
@@ -22,7 +23,7 @@ typedef gmm::linalg_traits<gmm::wsvector<double>>::const_iterator GmmIterator;
     dst.pack();
   }
 
-  void tacoToGMM(const Tensor<double>& src, GmmDynSparse& dst) {
+  void tacoToGMM(const Tensor<double>& src, GmmSparse& dst) {
     for (auto& value : iterate<double>(src))
       dst(value.first.at(0),value.first.at(1)) = value.second;
   }
@@ -44,9 +45,9 @@ typedef gmm::linalg_traits<gmm::wsvector<double>>::const_iterator GmmIterator;
         int rows=exprOperands.at("A").getDimension(0);
         int cols=exprOperands.at("A").getDimension(1);
 
-        GmmDynSparse Agmm_tmp(rows,cols);
+        GmmSparse Agmm_tmp(rows,cols);
         tacoToGMM(exprOperands.at("A"),Agmm_tmp);
-        GmmSparse Agmm(rows,cols);
+        GmmCSR Agmm(rows,cols);
         gmm::copy(Agmm_tmp, Agmm);
         std::vector<double> xgmm(cols), ygmm(rows);
         tacoToGMM(exprOperands.at("x"),xgmm);
@@ -62,10 +63,10 @@ typedef gmm::linalg_traits<gmm::wsvector<double>>::const_iterator GmmIterator;
       case PLUS3: {
         int rows=exprOperands.at("ARef").getDimension(0);
         int cols=exprOperands.at("ARef").getDimension(1);
-        GmmDynSparse Agmm(rows,cols);
-        GmmDynSparse Bgmm(rows,cols);
-        GmmDynSparse Cgmm(rows,cols);
-        GmmDynSparse Dgmm(rows,cols);
+        GmmSparse Agmm(rows,cols);
+        GmmSparse Bgmm(rows,cols);
+        GmmSparse Cgmm(rows,cols);
+        GmmSparse Dgmm(rows,cols);
 
         tacoToGMM(exprOperands.at("B"),Bgmm);
         tacoToGMM(exprOperands.at("C"),Cgmm);
@@ -79,14 +80,13 @@ typedef gmm::linalg_traits<gmm::wsvector<double>>::const_iterator GmmIterator;
         validate("GMM", A_gmm, exprOperands.at("ARef"));
         break;
       }
-      case MATTRANSMUL:
-      case RESIDUAL: {
+      case MATTRANSMUL: {
         int rows=exprOperands.at("A").getDimension(0);
         int cols=exprOperands.at("A").getDimension(1);
 
-        GmmDynSparse Agmm_tmp(rows,cols);
+        GmmSparse Agmm_tmp(rows,cols);
         tacoToGMM(exprOperands.at("A"),Agmm_tmp);
-        GmmSparse Agmm(rows,cols);
+        GmmCSC Agmm(rows,cols);
         gmm::copy(Agmm_tmp, Agmm);
         std::vector<double> xgmm(cols), ygmm(rows), zgmm(rows);
         tacoToGMM(exprOperands.at("x"),xgmm);
@@ -94,10 +94,29 @@ typedef gmm::linalg_traits<gmm::wsvector<double>>::const_iterator GmmIterator;
         double alpha = ((double*)(exprOperands.at("alpha").getStorage().getValues().getData()))[0];
         double beta = ((double*)(exprOperands.at("beta").getStorage().getValues().getData()))[0];
 
-        if (Expr==MATTRANSMUL) {
-          TACO_BENCH(gmm::mult(gmm::transposed(Agmm), gmm::scaled(xgmm, alpha), gmm::scaled(zgmm, beta), ygmm);,"GMM",repeat,timevalue,true); }
-        else {
-          TACO_BENCH(gmm::mult(Agmm, gmm::scaled(xgmm, -1.0), zgmm, ygmm);,"GMM",repeat,timevalue,true); }
+        TACO_BENCH(gmm::mult(gmm::transposed(Agmm), gmm::scaled(xgmm, alpha), gmm::scaled(zgmm, beta), ygmm);,"GMM",repeat,timevalue,true);
+
+        Tensor<double> y_gmm({rows}, Dense);
+        GMMTotaco(ygmm,y_gmm);
+
+        validate("GMM++", y_gmm, exprOperands.at("yRef"));
+        break;
+      }
+      case RESIDUAL: {
+        int rows=exprOperands.at("A").getDimension(0);
+        int cols=exprOperands.at("A").getDimension(1);
+
+        GmmSparse Agmm_tmp(rows,cols);
+        tacoToGMM(exprOperands.at("A"),Agmm_tmp);
+        GmmCSR Agmm(rows,cols);
+        gmm::copy(Agmm_tmp, Agmm);
+        std::vector<double> xgmm(cols), ygmm(rows), zgmm(rows);
+        tacoToGMM(exprOperands.at("x"),xgmm);
+        tacoToGMM(exprOperands.at("z"),zgmm);
+        double alpha = ((double*)(exprOperands.at("alpha").getStorage().getValues().getData()))[0];
+        double beta = ((double*)(exprOperands.at("beta").getStorage().getValues().getData()))[0];
+
+        TACO_BENCH(gmm::mult(Agmm, gmm::scaled(xgmm, -1.0), zgmm, ygmm);,"GMM",repeat,timevalue,true);
 
         Tensor<double> y_gmm({rows}, Dense);
         GMMTotaco(ygmm,y_gmm);

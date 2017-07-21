@@ -212,8 +212,8 @@ int main(int argc, char* argv[]) {
   // taco Formats
   map<string,Format> TacoFormats;
   TacoFormats.insert({"CSR",CSR});
-  TacoFormats.insert({"Sparse,Sparse",Format({Sparse,Sparse})});
   TacoFormats.insert({"CSC",CSC});
+  //TacoFormats.insert({"Sparse,Sparse",Format({Sparse,Sparse})});
 
   switch(Expr) {
     case SpMV: {
@@ -222,7 +222,7 @@ int main(int argc, char* argv[]) {
       Tensor<double> x({cols}, Dense);
       util::fillTensor(x,util::FillMethod::Dense);
       Tensor<double> yRef({rows}, Dense);
-      Tensor<double> A=read(inputFilenames.at("A"),CSC,true);
+      Tensor<double> A=read(inputFilenames.at("A"),CSR,true);
       IndexVar i, j;
       yRef(i) = A(i,j) * x(j);
       yRef.compile();
@@ -231,7 +231,7 @@ int main(int argc, char* argv[]) {
 
       for (auto& formats:TacoFormats) {
         cout << "y(i) = A(i,j)*x(j) -- " << formats.first <<endl;
-        A=read(inputFilenames.at("A"),formats.second,true);
+        Tensor<double> A=read(inputFilenames.at("A"),formats.second,true);
         Tensor<double> y({rows}, Dense);
 
         y(i) = A(i,j) * x(j);
@@ -242,8 +242,6 @@ int main(int argc, char* argv[]) {
 
         validate("taco", y, yRef);
       }
-      // get CSC arrays for other products
-      A=read(inputFilenames.at("A"),CSC,true);
       exprOperands.insert({"yRef",yRef});
       exprOperands.insert({"A",A});
       exprOperands.insert({"x",x});
@@ -261,11 +259,6 @@ int main(int argc, char* argv[]) {
       ARef.compile();
       ARef.assemble();
       ARef.compute();
-
-      map<string,Format> TacoFormats;
-      TacoFormats.insert({"CSR",CSR});
-      TacoFormats.insert({"Sparse,Sparse",Format({Sparse,Sparse})});
-      TacoFormats.insert({"CSC",CSC});
 
       for (auto& formats:TacoFormats) {
         cout << "A(i,j) = B(i,j) + C(i,j) + D(i,j) -- " << formats.first <<endl;
@@ -313,12 +306,11 @@ int main(int argc, char* argv[]) {
       if (Expr==RESIDUAL) {
         ((double*)(Talpha.getStorage().getValues().getData()))[0] = -1.0;
         ((double*)(Tbeta.getStorage().getValues().getData()))[0] = 1.0;
-        Tensor<double> A=read(inputFilenames.at("A"),CSR,true);
+        A=read(inputFilenames.at("A"),CSR,true);
         yRef(i) = z(i) -(A(i,j) * x(j)) ;
         cout << "y= b - Ax -- " << endl;
       }
       else {
-        Tensor<double> A=read(inputFilenames.at("A"),CSC,true);
         yRef(i) = Talpha() * (A(j,i) * x(j)) + Tbeta() * z(i);
         cout << "y=alpha*A^Tx + beta*z -- " << endl;
       }
@@ -326,7 +318,6 @@ int main(int argc, char* argv[]) {
       TACO_BENCH(yRef.assemble();, "Assemble",1,timevalue,false)
       TACO_BENCH(yRef.compute();, "Compute",repeat,timevalue,true)
 
-      A=read(inputFilenames.at("A"),CSC,true);
       exprOperands.insert({"yRef",yRef});
       exprOperands.insert({"A",A});
       exprOperands.insert({"x",x});
@@ -356,7 +347,6 @@ int main(int argc, char* argv[]) {
       TACO_BENCH(ARef.assemble();,"Assemble",1,timevalue,false)
       TACO_BENCH(ARef.compute();, "Compute",repeat, timevalue, true)
 
-      B=read(inputFilenames.at("B"),CSC,true);
       exprOperands.insert({"ARef",ARef});
       exprOperands.insert({"B",B});
       exprOperands.insert({"C",C});
