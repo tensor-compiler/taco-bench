@@ -51,7 +51,7 @@ Note: Install first OSKI and then use this installation to install POSKI.
 1. Commercial licensed product from Intel: https://software.intel.com/en-us/mkl.
 2. Specify `MKL_ROOT`.
 
-Note: use the mklvars.sh script of INTEL to set properly your environment.
+Note: use the `mklvars.sh` script of Intel to set properly your environment.
 
 # Benchmarking taco against *your* product
 
