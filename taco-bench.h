@@ -5,9 +5,9 @@ using namespace taco;
 using namespace std;
 
 // MACRO to benchmark some CODE with REPEAT times and COLD/WARM cache
-#define TACO_BENCH(CODE, NAME, REPEAT, TIMER, COLD) {           \
-    TACO_TIME_REPEAT(CODE, REPEAT, TIMER, COLD);                \
-    cout << NAME << " time (ms)" << endl << TIMER << endl;      \
+#define TACO_BENCH(CODE, NAME, REPEAT, TIMER, COLD) {               \
+    TACO_TIME_REPEAT(CODE, REPEAT, TIMER, COLD);                    \
+    cout << NAME << " time (ms)" << endl << TIMER << endl;  \
 }
 
 #define CHECK_PRODUCT(NAME) {                                   \

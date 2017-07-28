@@ -1,4 +1,4 @@
-#include "taco/tensor.h"
+ #include "taco/tensor.h"
 
 using namespace taco;
 using namespace std;
@@ -52,7 +52,7 @@ typedef gmm::linalg_traits<gmm::wsvector<double>>::const_iterator GmmIterator;
         std::vector<double> xgmm(cols), ygmm(rows);
         tacoToGMM(exprOperands.at("x"),xgmm);
 
-        TACO_BENCH(gmm::mult(Agmm, xgmm, ygmm);,"GMM",repeat,timevalue,true);
+        TACO_BENCH(gmm::mult(Agmm, xgmm, ygmm);,"\nGMM",repeat,timevalue,true);
 
         Tensor<double> y_gmm({rows}, Dense);
         GMMTotaco(ygmm,y_gmm);
@@ -72,7 +72,7 @@ typedef gmm::linalg_traits<gmm::wsvector<double>>::const_iterator GmmIterator;
         tacoToGMM(exprOperands.at("C"),Cgmm);
         tacoToGMM(exprOperands.at("D"),Dgmm);
 
-        TACO_BENCH(Agmm=Bgmm;gmm::add(Cgmm,Agmm);gmm::add(Dgmm,Agmm);,"GMM",repeat,timevalue,true);
+        TACO_BENCH(Agmm=Bgmm;gmm::add(Cgmm,Agmm);gmm::add(Dgmm,Agmm);,"\nGMM",repeat,timevalue,true);
 
         Tensor<double> A_gmm({rows,cols}, CSC);
         GMMTotaco(Agmm,A_gmm);
@@ -94,7 +94,7 @@ typedef gmm::linalg_traits<gmm::wsvector<double>>::const_iterator GmmIterator;
         double alpha = ((double*)(exprOperands.at("alpha").getStorage().getValues().getData()))[0];
         double beta = ((double*)(exprOperands.at("beta").getStorage().getValues().getData()))[0];
 
-        TACO_BENCH(gmm::mult(gmm::transposed(Agmm), gmm::scaled(xgmm, alpha), gmm::scaled(zgmm, beta), ygmm);,"GMM",repeat,timevalue,true);
+        TACO_BENCH(gmm::mult(gmm::transposed(Agmm), gmm::scaled(xgmm, alpha), gmm::scaled(zgmm, beta), ygmm);,"\nGMM",repeat,timevalue,true);
 
         Tensor<double> y_gmm({rows}, Dense);
         GMMTotaco(ygmm,y_gmm);
@@ -116,7 +116,7 @@ typedef gmm::linalg_traits<gmm::wsvector<double>>::const_iterator GmmIterator;
         double alpha = ((double*)(exprOperands.at("alpha").getStorage().getValues().getData()))[0];
         double beta = ((double*)(exprOperands.at("beta").getStorage().getValues().getData()))[0];
 
-        TACO_BENCH(gmm::mult(Agmm, gmm::scaled(xgmm, -1.0), zgmm, ygmm);,"GMM",repeat,timevalue,true);
+        TACO_BENCH(gmm::mult(Agmm, gmm::scaled(xgmm, -1.0), zgmm, ygmm);,"\nGMM",repeat,timevalue,true);
 
         Tensor<double> y_gmm({rows}, Dense);
         GMMTotaco(ygmm,y_gmm);

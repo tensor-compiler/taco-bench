@@ -74,7 +74,7 @@ typedef Eigen::Matrix<double,Eigen::Dynamic,Eigen::Dynamic, Eigen::RowMajor> Eig
         tacoToEigen(exprOperands.at("x"),xEigen);
         tacoToEigen(exprOperands.at("A"),AEigen);
 
-        TACO_BENCH(yEigen.noalias() = AEigen * xEigen;,"Eigen",repeat,timevalue,true);
+        TACO_BENCH(yEigen.noalias() = AEigen * xEigen;,"\nEigen",repeat,timevalue,true);
 
         Tensor<double> y_Eigen({rows}, Dense);
         EigenTotaco(yEigen,y_Eigen);
@@ -94,7 +94,7 @@ typedef Eigen::Matrix<double,Eigen::Dynamic,Eigen::Dynamic, Eigen::RowMajor> Eig
         tacoToEigen(exprOperands.at("C"),CEigen);
         tacoToEigen(exprOperands.at("D"),DEigen);
 
-        TACO_BENCH(AEigen = BEigen + CEigen + DEigen;,"Eigen",repeat,timevalue,true);
+        TACO_BENCH(AEigen = BEigen + CEigen + DEigen;,"\nEigen",repeat,timevalue,true);
 
         Tensor<double> A_Eigen({rows,cols}, CSC);
         EigenTotaco(AEigen,A_Eigen);
@@ -117,7 +117,7 @@ typedef Eigen::Matrix<double,Eigen::Dynamic,Eigen::Dynamic, Eigen::RowMajor> Eig
         alpha = ((double*)(exprOperands.at("alpha").getStorage().getValues().getData()))[0];
         beta = ((double*)(exprOperands.at("beta").getStorage().getValues().getData()))[0];
 
-        TACO_BENCH(yEigen.noalias() = alpha *AEigen.transpose() * xEigen + beta * zEigen;,"Eigen",repeat,timevalue,true);
+        TACO_BENCH(yEigen.noalias() = alpha *AEigen.transpose() * xEigen + beta * zEigen;,"\nEigen",repeat,timevalue,true);
 
         Tensor<double> y_Eigen({rows}, Dense);
         EigenTotaco(yEigen,y_Eigen);
@@ -140,7 +140,7 @@ typedef Eigen::Matrix<double,Eigen::Dynamic,Eigen::Dynamic, Eigen::RowMajor> Eig
         alpha = ((double*)(exprOperands.at("alpha").getStorage().getValues().getData()))[0];
         beta = ((double*)(exprOperands.at("beta").getStorage().getValues().getData()))[0];
 
-        TACO_BENCH(yEigen.noalias() = zEigen - AEigen * xEigen ;,"Eigen",repeat,timevalue,true);
+        TACO_BENCH(yEigen.noalias() = zEigen - AEigen * xEigen ;,"\nEigen",repeat,timevalue,true);
 
         Tensor<double> y_Eigen({rows}, Dense);
         EigenTotaco(yEigen,y_Eigen);
@@ -160,7 +160,7 @@ typedef Eigen::Matrix<double,Eigen::Dynamic,Eigen::Dynamic, Eigen::RowMajor> Eig
         tacoToEigen(exprOperands.at("C"),CEigen);
         tacoToEigen(exprOperands.at("D"),DEigen);
 
-        TACO_BENCH(AEigen = BEigen.cwiseProduct(CEigen.lazyProduct(DEigen));,"Eigen",repeat,timevalue,true);
+        TACO_BENCH(AEigen = BEigen.cwiseProduct(CEigen.lazyProduct(DEigen));,"\nEigen",repeat,timevalue,true);
 
         Tensor<double> A_Eigen({rows,cols}, CSC);
         EigenTotaco(AEigen,A_Eigen);

@@ -65,7 +65,7 @@ typedef boost::numeric::ublas::vector<double> UBlasDenseVector;
         UBlasDenseVector xublas(cols), yublas(rows);
         tacoToUBLAS(exprOperands.at("x"),xublas);
 
-        TACO_BENCH(boost::numeric::ublas::axpy_prod(Aublas, xublas, yublas, true);,"UBLAS",repeat,timevalue,true);
+        TACO_BENCH(boost::numeric::ublas::axpy_prod(Aublas, xublas, yublas, true);,"\nUBLAS",repeat,timevalue,true);
 
         Tensor<double> y_ublas({rows}, Dense);
         UBLASTotaco(yublas,y_ublas);
@@ -85,7 +85,7 @@ typedef boost::numeric::ublas::vector<double> UBlasDenseVector;
         tacoToUBLAS(exprOperands.at("C"),Cublas);
         tacoToUBLAS(exprOperands.at("D"),Dublas);
 
-        TACO_BENCH(noalias(Aublas) = Bublas + Cublas + Dublas;,"UBLAS",repeat,timevalue,true);
+        TACO_BENCH(noalias(Aublas) = Bublas + Cublas + Dublas;,"\nUBLAS",repeat,timevalue,true);
 
         Tensor<double> A_ublas({rows,cols}, CSC);
         UBLASTotaco(Aublas,A_ublas);
@@ -105,7 +105,7 @@ typedef boost::numeric::ublas::vector<double> UBlasDenseVector;
         double alpha = ((double*)(exprOperands.at("alpha").getStorage().getValues().getData()))[0];
         double beta = ((double*)(exprOperands.at("beta").getStorage().getValues().getData()))[0];
 
-        TACO_BENCH(boost::numeric::ublas::axpy_prod(xublas, Aublas, tmpublas, true); yublas = alpha * tmpublas + beta * zublas;,"UBLAS",repeat,timevalue,true);
+        TACO_BENCH(boost::numeric::ublas::axpy_prod(xublas, Aublas, tmpublas, true); yublas = alpha * tmpublas + beta * zublas;,"\nUBLAS",repeat,timevalue,true);
 
         Tensor<double> y_ublas({rows}, Dense);
         UBLASTotaco(yublas,y_ublas);
@@ -125,7 +125,7 @@ typedef boost::numeric::ublas::vector<double> UBlasDenseVector;
         double alpha = ((double*)(exprOperands.at("alpha").getStorage().getValues().getData()))[0];
         double beta = ((double*)(exprOperands.at("beta").getStorage().getValues().getData()))[0];
 
-        TACO_BENCH(boost::numeric::ublas::axpy_prod(Aublas, xublas, tmpublas, true); yublas = zublas - tmpublas ;,"UBLAS",repeat,timevalue,true);
+        TACO_BENCH(boost::numeric::ublas::axpy_prod(Aublas, xublas, tmpublas, true); yublas = zublas - tmpublas ;,"\nUBLAS",repeat,timevalue,true);
 
         Tensor<double> y_ublas({rows}, Dense);
         UBLASTotaco(yublas,y_ublas);
@@ -145,7 +145,7 @@ typedef boost::numeric::ublas::vector<double> UBlasDenseVector;
         tacoToUBLAS(exprOperands.at("C"),Cublas);
         tacoToUBLAS(exprOperands.at("D"),Dublas);
 
-        TACO_BENCH(noalias(Aublas) = element_prod(Bublas, prod(Cublas, Dublas)) ;,"UBLAS",repeat,timevalue,true);
+        TACO_BENCH(noalias(Aublas) = element_prod(Bublas, prod(Cublas, Dublas)) ;,"\nUBLAS",repeat,timevalue,true);
 
         Tensor<double> A_ublas({rows,cols}, CSC);
         UBLASTotaco(Aublas,A_ublas);

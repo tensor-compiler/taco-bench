@@ -39,7 +39,7 @@ using namespace std;
         TACO_BENCH(mkl_dcsrgemv(&transa, &rows, a_CSR, ia_CSR, ja_CSR,
                                 (double*)(exprOperands.at("x").getStorage().getValues().getData()),
                                 (double*)(y_mkl.getStorage().getValues().getData()));,
-                   "MKL", repeat,timevalue,true)
+                   "\nMKL", repeat,timevalue,true)
 
         validate("MKL", y_mkl, exprOperands.at("yRef"));
 
@@ -103,7 +103,7 @@ using namespace std;
         TACO_BENCH( a_CSR = new double[4*nnz]; ia_CSR = new int[4*nnz]; ja_CSR = new int[4*nnz];
              mkl_dcsradd(&transa, &request, &sort, &rows, &cols, b_CSR, jb_CSR, ib_CSR, &malpha, c_CSR, jc_CSR, ic_CSR, a_CSR, ja_CSR, ia_CSR, &nnz, &ret);
              mkl_dcsradd(&transa, &request, &sort, &rows, &cols, a_CSR, ja_CSR, ia_CSR, &malpha, d_CSR, jd_CSR, id_CSR, a_CSR, ja_CSR, ia_CSR, &nnz, &ret);,
-             "MKL",repeat,timevalue,true);
+             "\nMKL",repeat,timevalue,true);
 
         for (int i = 0; i < ptrsize; ++i) {
           ia_CSR[i] = ia_CSR[i] - 1;
@@ -144,7 +144,7 @@ using namespace std;
         mkl_dcscmv(&transa, &rows, &cols, &alpha, matdescra, a_CSC, ja_CSC, pointerB,
                    pointerE, (double*)(exprOperands.at("x").getStorage().getValues().getData()),
                    &beta, (double*)(y_mkl.getStorage().getValues().getData()));,
-                   "MKL", repeat,timevalue,true)
+                   "\nMKL", repeat,timevalue,true)
 
         validate("MKL", y_mkl, exprOperands.at("yRef"));
 
@@ -186,7 +186,7 @@ using namespace std;
         mkl_dcsrmv(&transa, &rows, &cols, &alpha, matdescra, a_CSR, ja_CSR, pointerB,
                    pointerE, (double*)(exprOperands.at("x").getStorage().getValues().getData()),
                    &beta, (double*)(y_mkl.getStorage().getValues().getData()));,
-                   "MKL", repeat,timevalue,true)
+                   "\nMKL", repeat,timevalue,true)
 
         validate("MKL", y_mkl, exprOperands.at("yRef"));
 
