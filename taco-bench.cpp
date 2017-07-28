@@ -72,7 +72,7 @@ static void printUsageInfo() {
             "Read a tensor from a .mtx file.");
   cout << endl;
   printFlag("s=<size>",
-            "Size for Sparsities studies.");
+            "Size of each mode for sparsities studies.");
   cout << endl;
   printFlag("p=<product>,<products>",
             "Specify a list of products to use from: \n "
@@ -114,7 +114,7 @@ int main(int argc, char* argv[]) {
   BenchExpr Expr;
   map<string,Tensor<double>> exprOperands;
   int repeat=1;
-  int size;
+  int size = 100;
   map<string,string> inputFilenames;
   taco::util::TimeResults timevalue;
   map<string,bool> products;
