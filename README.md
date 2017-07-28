@@ -53,11 +53,11 @@ Note: Install first OSKI and then use this installation to install POSKI.
 
 Note: use the `mklvars.sh` script of Intel to set properly your environment.
 
-# Benchmarking taco against *your* product
+# Benchmarking taco against your product
 
-1. Modify CMakeList.txt: add compilation options, INCLUDE, and LIBRARY directories to *your* project.
+1. Modify CMakeList.txt: add an environment variable `YOUR`, compilation options, `YOUR_INCLUDE`, and `YOUR_LIBRARY` directories to your project.
 
-2. Implement the expression using *your* project. Modify `yours4taco.h` file.
+2. Implement the expression using *your* project. Modify `your4taco.h` file.
 
 3. Use the `TACO_BENCH` macro to benchmark and `validate` method to compare against expected results.
 
