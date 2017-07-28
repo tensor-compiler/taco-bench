@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8)
-project(tacoBench)
+project(taco-bench)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -ffast-math -std=c++11")
 file(GLOB SOURCE_CODE ${PROJECT_SOURCE_DIR}/*.cpp)
