@@ -30,14 +30,12 @@ Do the following steps before you build taco-bench with cmake to benchmark again
 
 ## UBLAS
 
-1. UBLAS is usually already installed in `/usr/include`.
-2. Documentation can be found at http://www.boost.org/doc/libs/1_45_0/libs/numeric/ublas/doc/index.htm.
-3. Specify the variable `UBLAS_INCLUDE_DIR`.
+1. Follow the documentation to install ublas: http://www.boost.org/doc/libs/1_45_0/libs/numeric/ublas/doc/index.htm.
+2. Specify the variable `UBLAS_INCLUDE_DIR`.
 
 ## OSKI
 
-1. Follow the user's guide to install and tune OSKI.
-2. http://bebop.cs.berkeley.edu/oski/downloads.html.
+1. Follow the user guide to install and tune OSKI: http://bebop.cs.berkeley.edu/oski/downloads.html.
 3. Specify `OSKI_INCLUDE_DIR` and `OSKI_LIBRARY_DIR`.
 
 ## POSKI
