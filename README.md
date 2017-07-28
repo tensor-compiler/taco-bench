@@ -21,7 +21,7 @@ Do the following steps before you build taco-bench with cmake to benchmark again
 ## EIGEN
 
 1. Download and extract Eigen's source code from https://eigen.tuxfamily.org/dox/GettingStarted.html.
-2. Specify the variable `EIGEN_INCLUDE_DIR`.
+2. Specify the variable `EIGEN_DIR`.
 
 ## GMM++
 

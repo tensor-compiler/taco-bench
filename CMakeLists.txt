@@ -18,11 +18,11 @@ target_link_libraries(${PROJECT_NAME} LINK_PUBLIC ${taco})
 include_directories(${TACO_INCLUDE_DIR})
 
 # Eigen
-if (NOT DEFINED ENV{EIGEN_INCLUDE_DIR})
+if (NOT DEFINED ENV{EIGEN_DIR})
   message(WARNING "Eigen not found and will not be used")
 else()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DEIGEN -Wno-deprecated-declarations")    
-  include_directories($ENV{EIGEN_INCLUDE_DIR})
+  include_directories($ENV{EIGEN_DIR})
 endif ()
 
 # GMM
@@ -77,7 +77,7 @@ else()
 endif ()
 
 # Your project
-if (NOT DEFINED ENV{YOUR_INCLUDE_DIR})
+if ((NOT DEFINED ENV{YOUR_INCLUDE_DIR}) OR (NOT DEFINED ENV{YOUR_LIBRARY_DIR}))
   message(WARNING "Your not found and will not be used")
 else()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DYOUR ")
