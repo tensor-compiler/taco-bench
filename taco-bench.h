@@ -12,7 +12,7 @@ using namespace std;
 
 #define CHECK_PRODUCT(NAME) {                                   \
     if (products.at(NAME)) {                                    \
-      cout << "tacoBench was not compiled with "<< NAME << " and will not use it" << endl; \
+      cout << "taco-bench was not compiled with "<< NAME << " and will not use it" << endl; \
       products.at(NAME)=false;                                  \
     }                                                           \
 }
