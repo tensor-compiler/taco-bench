@@ -5,6 +5,8 @@ using namespace std;
 
 #ifdef MKL
   #include "mkl_spblas.h"
+  #include "mkl_blas.h"
+  #include "mkl.h"
 
   void exprToMKL(BenchExpr Expr, map<string,Tensor<double>> exprOperands,int repeat, taco::util::TimeResults timevalue) {
     switch(Expr) {
