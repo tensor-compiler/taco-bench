@@ -13,7 +13,6 @@ typedef boost::numeric::ublas::compressed_matrix<double,boost::numeric::ublas::r
 typedef boost::numeric::ublas::matrix<double,boost::numeric::ublas::column_major> UBlasColMajor;
 typedef boost::numeric::ublas::matrix<double,boost::numeric::ublas::row_major> UBlasRowMajor;
 typedef boost::numeric::ublas::vector<double> UBlasDenseVector;
-#endif
 
   void UBLASTotaco(const UBlasCSC& src, Tensor<double>& dst){
     for (auto it1 = src.begin2(); it1 != src.end2(); it1++ )
@@ -159,3 +158,5 @@ typedef boost::numeric::ublas::vector<double> UBlasDenseVector;
         break;
     }
 }
+#endif
+
