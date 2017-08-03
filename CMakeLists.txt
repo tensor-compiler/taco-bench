@@ -3,7 +3,8 @@ project(taco-bench)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -ffast-math -std=c++11")
 file(GLOB SOURCE_CODE ${PROJECT_SOURCE_DIR}/*.cpp)
-add_executable(${PROJECT_NAME} ${SOURCE_CODE})
+file(GLOB HEADERS ${PROJECT_SOURCE_DIR}/*.h)
+add_executable(${PROJECT_NAME} ${SOURCE_CODE} ${HEADERS})
 
 # To find taco
 if (NOT DEFINED ENV{TACO_INCLUDE_DIR} OR NOT DEFINED ENV{TACO_LIBRARY_DIR})
