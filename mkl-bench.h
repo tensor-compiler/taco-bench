@@ -205,12 +205,17 @@ using namespace std;
         
         // this does alpha * op(A) * op(B) + beta*C
         TACO_BENCH(
-          cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, rows, cols,
+          cblas_dgemm(CblasRowMajor, CblasTrans, CblasNoTrans, rows, cols,
                       rows, alpha, A_mkl, rows, B_mkl, cols, beta, C_mkl, rows);,
 	"\nMKL", repeat, timevalue, true);
         
-        
-       // validate("MKL", C_mkl, exprOperands.at("CRef"));
+        Tensor<double> C_mkl_validation({rows, cols}, Format({Dense,Dense}));
+        for (int i=0; i<rows; i++) {
+          for (int j=0; j<cols; j++) {
+            C_mkl_validation.insert(i,j,C_mkl[i+j*rows]);
+          }
+        }
+        validate("MKL", C_mkl_validation, exprOperands.at("CRef"));
         
         free(C_mkl);
         break;
