@@ -529,10 +529,11 @@ int main(int argc, char* argv[]) {
       rows = size;
       cols = size;
       Tensor<double> B({cols, rows}, Format({Dense,Dense}));
-      util::fillTensor(B,util::FillMethod::Dense);
+      util::fillMatrix(B,util::FillMethod::Dense,1.0);
       Tensor<double> CRef({rows, cols}, Format({Dense,Dense}));
       Tensor<double> A({rows,cols}, Format({Dense,Dense}));
       util::fillMatrix(A,util::FillMethod::Dense,1.0);
+
       IndexVar i, j, k;
       CRef(i, j) = A(i, k) * B(k, j);
       CRef.compile();
