@@ -192,6 +192,64 @@ using namespace std;
 
         break;
       }
+      case SparsitySpMDM: {
+        // use MKL to benchmark dense matrix-matrix mult
+        int rows=exprOperands.at("CRef").getDimension(0);
+        int cols=exprOperands.at("CRef").getDimension(1);
+        double* C_mkl = (double*)malloc(sizeof(double)*rows*cols);
+        double* A_mkl = (double*)exprOperands.at("A").getStorage().getValues().getData();
+        double* B_mkl = (double*)exprOperands.at("B").getStorage().getValues().getData();
+#ifdef MKL_PRINT_DENSE
+        for (int i=0; i<rows; i++) {
+          for (int j=0; j<cols; j++) {
+            printf(" %g ", ((double*)(exprOperands.at("A").getStorage().getValues().getData()))[i+j*rows]);
+          }
+          printf("\n");
+        }
+        printf("\n");
+        for (int i=0; i<rows; i++) {
+          for (int j=0; j<cols; j++) {
+            printf(" %g ", ((double*)(exprOperands.at("B").getStorage().getValues().getData()))[i+j*rows]);
+          }
+          printf("\n");
+        } 
+        printf("\n");
+#endif
+        double alpha = 1.0;
+        double beta = 0.0;
+        
+        // this does alpha * op(A) * op(B) + beta*C
+        TACO_BENCH(
+          cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, rows, cols,
+                      rows, alpha, A_mkl, rows, B_mkl, cols, beta, C_mkl, rows);,
+	"\nMKL", repeat, timevalue, true);
+        
+        Tensor<double> C_mkl_validation({rows, cols}, Format({Dense,Dense}));
+        for (int i=0; i<rows; i++) {
+          for (int j=0; j<cols; j++) {
+            C_mkl_validation.insert({i,j},C_mkl[i+j*rows]);
+          }
+        }
+        validate("MKL", C_mkl_validation, exprOperands.at("CRef"));
+
+#ifdef MKL_PRINT_DENSE        
+        for (int i=0; i<rows; i++) {
+          for (int j=0; j<cols; j++) {
+            printf(" %g ", C_mkl[i+j*rows]);
+          }
+          printf("\n");
+        }
+        printf("\n");
+        for (int i=0; i<rows; i++) {
+          for (int j=0; j<cols; j++) {
+            printf(" %g ", ((double*)(exprOperands.at("CRef").getStorage().getValues().getData()))[i+j*rows]);
+          }
+          printf("\n");
+        }
+#endif
+       free(C_mkl);
+        break;
+      }
       default:
         cout << " !! Expression not implemented for MKL" << endl;
         break;
