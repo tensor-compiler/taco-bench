@@ -8,13 +8,15 @@ extern "C" {
 #include <poski/poski.h>
 }
 
-  void tacoToPOSKI(const Tensor<double>& src, poski_mat_t& dst) {
+  void tacoToPOSKI(const Tensor<double>& src, poski_mat_t& dst, bool transpose = false) {
     int rows=src.getDimension(0);
     int cols=src.getDimension(1);
     // convert to CSR
     Tensor<double> ACSR({rows,cols}, CSR);
     for (auto& value : iterate<double>(src)) {
-      ACSR.insert({value.first.at(0),value.first.at(1)},value.second);
+      int i = transpose ? value.first.at(1) : value.first.at(0);
+      int j = transpose ? value.first.at(0) : value.first.at(1);
+      ACSR.insert({i,j},value.second);
     }
     ACSR.pack();
     double *a_CSR;
@@ -103,7 +105,7 @@ extern "C" {
         poski_Init();
 
         poski_mat_t A_tunable;
-        tacoToPOSKI(exprOperands.at("A"),A_tunable);
+        tacoToPOSKI(exprOperands.at("A"),A_tunable,Expr==MATTRANSMUL);
         Tensor<double> y_poski({rows}, Dense);
         y_poski.pack();
         poski_vec_t xposki_view, yposki_view, zposki_view;
@@ -118,7 +120,7 @@ extern "C" {
 
         if (Expr==MATTRANSMUL) {
           TACO_BENCH(for (auto k=0; k<rows; k++) {yvals[k]=zvals[k];} ;
-                     poski_MatMult(A_tunable, OP_TRANS, alpha, xposki_view, beta, yposki_view);,"POSKI",repeat,timevalue,true) }
+                     poski_MatMult(A_tunable, OP_NORMAL, alpha, xposki_view, beta, yposki_view);,"POSKI",repeat,timevalue,true) }
         else {
           TACO_BENCH(for (auto k=0; k<rows; k++) {yvals[k]=zvals[k];} ;
                      poski_MatMult(A_tunable, OP_NORMAL, -1.0, xposki_view, 1.0, yposki_view);,"POSKI",repeat,timevalue,true) }
@@ -127,14 +129,14 @@ extern "C" {
 
         // tune
         if (Expr==MATTRANSMUL) {
-          poski_TuneHint_MatMult(A_tunable, OP_TRANS, alpha, xposki_view, beta, yposki_view, ALWAYS_TUNE_AGGRESSIVELY); }
+          poski_TuneHint_MatMult(A_tunable, OP_NORMAL, alpha, xposki_view, beta, yposki_view, ALWAYS_TUNE_AGGRESSIVELY); }
         else {
           poski_TuneHint_MatMult(A_tunable, OP_NORMAL, -1.0, xposki_view, 1.0, yposki_view, ALWAYS_TUNE_AGGRESSIVELY); }
         poski_TuneMat(A_tunable);
 
         if (Expr==MATTRANSMUL) {
           TACO_BENCH(for (auto k=0; k<rows; k++) {yvals[k]=zvals[k];} ;
-                     poski_MatMult(A_tunable, OP_TRANS, alpha, xposki_view, beta, yposki_view);,"POSKI Tuned",repeat,timevalue,true); }
+                     poski_MatMult(A_tunable, OP_NORMAL, alpha, xposki_view, beta, yposki_view);,"POSKI Tuned",repeat,timevalue,true); }
         else {
           TACO_BENCH(for (auto k=0; k<rows; k++) {yvals[k]=zvals[k];} ;
                       poski_MatMult(A_tunable, OP_NORMAL, -1.0, xposki_view, 1.0, yposki_view);,"POSKI Tuned",repeat,timevalue,true) }
