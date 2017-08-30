@@ -5,6 +5,8 @@ using namespace std;
 
 #ifdef MKL
   #include "mkl_spblas.h"
+  #include "mkl_blas.h"
+  #include "mkl.h"
 
   void exprToMKL(BenchExpr Expr, map<string,Tensor<double>> exprOperands,int repeat, taco::util::TimeResults timevalue) {
     switch(Expr) {
@@ -37,7 +39,7 @@ using namespace std;
         TACO_BENCH(mkl_dcsrgemv(&transa, &rows, a_CSR, ia_CSR, ja_CSR,
                                 (double*)(exprOperands.at("x").getStorage().getValues().getData()),
                                 (double*)(y_mkl.getStorage().getValues().getData()));,
-                   "MKL", repeat,timevalue,true)
+                   "\nMKL", repeat,timevalue,true)
 
         validate("MKL", y_mkl, exprOperands.at("yRef"));
 
@@ -101,7 +103,7 @@ using namespace std;
         TACO_BENCH( a_CSR = new double[4*nnz]; ia_CSR = new int[4*nnz]; ja_CSR = new int[4*nnz];
              mkl_dcsradd(&transa, &request, &sort, &rows, &cols, b_CSR, jb_CSR, ib_CSR, &malpha, c_CSR, jc_CSR, ic_CSR, a_CSR, ja_CSR, ia_CSR, &nnz, &ret);
              mkl_dcsradd(&transa, &request, &sort, &rows, &cols, a_CSR, ja_CSR, ia_CSR, &malpha, d_CSR, jd_CSR, id_CSR, a_CSR, ja_CSR, ia_CSR, &nnz, &ret);,
-             "MKL",repeat,timevalue,true);
+             "\nMKL",repeat,timevalue,true);
 
         for (int i = 0; i < ptrsize; ++i) {
           ia_CSR[i] = ia_CSR[i] - 1;
@@ -142,7 +144,7 @@ using namespace std;
         mkl_dcscmv(&transa, &rows, &cols, &alpha, matdescra, a_CSC, ja_CSC, pointerB,
                    pointerE, (double*)(exprOperands.at("x").getStorage().getValues().getData()),
                    &beta, (double*)(y_mkl.getStorage().getValues().getData()));,
-                   "MKL", repeat,timevalue,true)
+                   "\nMKL", repeat,timevalue,true)
 
         validate("MKL", y_mkl, exprOperands.at("yRef"));
 
@@ -184,10 +186,68 @@ using namespace std;
         mkl_dcsrmv(&transa, &rows, &cols, &alpha, matdescra, a_CSR, ja_CSR, pointerB,
                    pointerE, (double*)(exprOperands.at("x").getStorage().getValues().getData()),
                    &beta, (double*)(y_mkl.getStorage().getValues().getData()));,
-                   "MKL", repeat,timevalue,true)
+                   "\nMKL", repeat,timevalue,true)
 
         validate("MKL", y_mkl, exprOperands.at("yRef"));
 
+        break;
+      }
+      case SparsitySpMDM: {
+        // use MKL to benchmark dense matrix-matrix mult
+        int rows=exprOperands.at("CRef").getDimension(0);
+        int cols=exprOperands.at("CRef").getDimension(1);
+        double* C_mkl = (double*)malloc(sizeof(double)*rows*cols);
+        double* A_mkl = (double*)exprOperands.at("A").getStorage().getValues().getData();
+        double* B_mkl = (double*)exprOperands.at("B").getStorage().getValues().getData();
+#ifdef MKL_PRINT_DENSE
+        for (int i=0; i<rows; i++) {
+          for (int j=0; j<cols; j++) {
+            printf(" %g ", ((double*)(exprOperands.at("A").getStorage().getValues().getData()))[i+j*rows]);
+          }
+          printf("\n");
+        }
+        printf("\n");
+        for (int i=0; i<rows; i++) {
+          for (int j=0; j<cols; j++) {
+            printf(" %g ", ((double*)(exprOperands.at("B").getStorage().getValues().getData()))[i+j*rows]);
+          }
+          printf("\n");
+        } 
+        printf("\n");
+#endif
+        double alpha = 1.0;
+        double beta = 0.0;
+        
+        // this does alpha * op(A) * op(B) + beta*C
+        TACO_BENCH(
+          cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, rows, cols,
+                      rows, alpha, A_mkl, rows, B_mkl, cols, beta, C_mkl, rows);,
+	"\nMKL", repeat, timevalue, true);
+        
+        Tensor<double> C_mkl_validation({rows, cols}, Format({Dense,Dense}));
+        for (int i=0; i<rows; i++) {
+          for (int j=0; j<cols; j++) {
+            C_mkl_validation.insert({i,j},C_mkl[i+j*rows]);
+          }
+        }
+        validate("MKL", C_mkl_validation, exprOperands.at("CRef"));
+
+#ifdef MKL_PRINT_DENSE        
+        for (int i=0; i<rows; i++) {
+          for (int j=0; j<cols; j++) {
+            printf(" %g ", C_mkl[i+j*rows]);
+          }
+          printf("\n");
+        }
+        printf("\n");
+        for (int i=0; i<rows; i++) {
+          for (int j=0; j<cols; j++) {
+            printf(" %g ", ((double*)(exprOperands.at("CRef").getStorage().getValues().getData()))[i+j*rows]);
+          }
+          printf("\n");
+        }
+#endif
+       free(C_mkl);
         break;
       }
       default:

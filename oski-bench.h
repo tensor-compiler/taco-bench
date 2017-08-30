@@ -49,7 +49,7 @@ extern "C" {
         y_oski.pack();
         tacoToOSKI(y_oski,yoski);
 
-        TACO_BENCH( oski_MatMult(Aoski, OP_NORMAL, 1, xoski, 0, yoski);,"OSKI",repeat,timevalue,true );
+        TACO_BENCH( oski_MatMult(Aoski, OP_NORMAL, 1, xoski, 0, yoski);,"\nOSKI",repeat,timevalue,true );
 
         validate("OSKI", y_oski, exprOperands.at("yRef"));
 
@@ -69,7 +69,7 @@ extern "C" {
           oski_Free (xform);
         }
 
-        TACO_BENCH(oski_MatMult(Aoski, OP_NORMAL, 1, xoski, 0, yoski);,"OSKI Tuned",repeat,timevalue,true);
+        TACO_BENCH(oski_MatMult(Aoski, OP_NORMAL, 1, xoski, 0, yoski);,"\nOSKI Tuned",repeat,timevalue,true);
 
         validate("OSKI Tuned", y_oski, exprOperands.at("yRef"));
 
@@ -133,10 +133,10 @@ extern "C" {
 
         if (Expr==MATTRANSMUL) {
           TACO_BENCH(for (auto k=0; k<rows; k++) {yvals[k]=zvals[k];} ;
-                     oski_MatMult(Aoski, OP_TRANS, alpha, xoski, beta, yoski);,"OSKI",repeat,timevalue,true); }
+                     oski_MatMult(Aoski, OP_TRANS, alpha, xoski, beta, yoski);,"\nOSKI",repeat,timevalue,true); }
         else {
           TACO_BENCH(for (auto k=0; k<rows; k++) {yvals[k]=zvals[k];} ;
-                     oski_MatMult(Aoski, OP_NORMAL, -1.0, xoski, 1.0, yoski);,"OSKI",repeat,timevalue,true); }
+                     oski_MatMult(Aoski, OP_NORMAL, -1.0, xoski, 1.0, yoski);,"\nOSKI",repeat,timevalue,true); }
 
         validate("OSKI", y_oski, exprOperands.at("yRef"));
 
@@ -149,10 +149,10 @@ extern "C" {
 
         if (Expr==MATTRANSMUL) {
           TACO_BENCH(for (auto k=0; k<rows; k++) {yvals[k]=zvals[k];} ;
-                     oski_MatMult(Aoski, OP_TRANS, alpha, xoski, beta, yoski);,"OSKI Tuned",repeat,timevalue,true); }
+                     oski_MatMult(Aoski, OP_TRANS, alpha, xoski, beta, yoski);,"\nOSKI Tuned",repeat,timevalue,true); }
         else {
           TACO_BENCH(for (auto k=0; k<rows; k++) {yvals[k]=zvals[k];} ;
-                     oski_MatMult(Aoski, OP_NORMAL, -1.0, xoski, 1.0, yoski);,"OSKI Tuned",repeat,timevalue,true); }
+                     oski_MatMult(Aoski, OP_NORMAL, -1.0, xoski, 1.0, yoski);,"\nOSKI Tuned",repeat,timevalue,true); }
 
         validate("OSKI Tuned", y_oski, exprOperands.at("yRef"));
 

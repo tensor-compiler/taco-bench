@@ -9,15 +9,15 @@
 #include "taco/util/collections.h"
 #include "taco/util/fill.h"
 
-#include "tacoBench.h"
+#include "taco-bench.h"
 // Includes for all the products
-#include "eigen4taco.h"
-#include "ublas4taco.h"
-#include "gmm4taco.h"
-#include "mkl4taco.h"
-#include "poski4taco.h"
-#include "oski4taco.h"
-#include "yours4taco.h"
+#include "eigen-bench.h"
+#include "ublas-bench.h"
+#include "gmm-bench.h"
+#include "mkl-bench.h"
+#include "poski-bench.h"
+#include "oski-bench.h"
+#include "your-bench.h"
 
 using namespace taco;
 using namespace std;
@@ -48,18 +48,22 @@ static void printFlag(string flag, string text) {
 }
 
 static void printUsageInfo() {
-  cout << "Usage: tacoBench [options]" << endl;
+  cout << "Usage: taco-bench [options]" << endl;
   cout << endl;
   cout << "Examples:" << endl;
-  cout << "  tacoBench -E=1 -r=10 -p=eigen,ublas  -i=A:/tmp/consph.mtx" << endl;
+  cout << "  taco-bench -E=1 -r=10 -p=eigen,ublas -i=A:consph.mtx" << endl;
+  cout << endl;
   cout << "Options:" << endl;
   printFlag("E=<expressionId>",
             "Specify the expression Id to benchmark from: \n"
-            "   1: SpMV         y(i) = A(i,j)*x(j) \n"
-            "   2: PLUS3       A(i,j) = B(i,j) + C(i,j) + D(i,j) \n"
-            "   3: MATTRANSMUL y = alpha*A^Tx + beta*z \n"
-            "   4: RESIDUAL    y(i) = b(i) - A(i,j)*x(j) \n"
-            "   5: SDDMM       A = B o (CxD) ");
+            "   1: SpMV          y(i) = A(i,j)*x(j) \n"
+            "   2: PLUS3         A(i,j) = B(i,j) + C(i,j) + D(i,j) \n"
+            "   3: MATTRANSMUL   y = alpha*A^Tx + beta*z \n"
+            "   4: RESIDUAL      y(i) = b(i) - A(i,j)*x(j) \n"
+            "   5: SDDMM         A = B o (CxD) \n"
+            "   6: SparsitySpMV  y = alpha*A^Tx + beta*z \n"
+            "   7: SparsityTTV   A(i,j) = B(i,j,k) * x(k) \n"
+            "   8: SparsitySpMDM C(i,j) = A(i, k) * B(k, j) \n");
   cout << endl;
   printFlag("r=<repeat>",
             "Time compilation, assembly and <repeat> times computation "
@@ -67,6 +71,9 @@ static void printUsageInfo() {
   cout << endl;
   printFlag("i=<tensor>:<filename>",
             "Read a tensor from a .mtx file.");
+  cout << endl;
+  printFlag("s=<size>",
+            "Size of each mode for sparsities studies.");
   cout << endl;
   printFlag("p=<product>,<products>",
             "Specify a list of products to use from: \n "
@@ -108,6 +115,7 @@ int main(int argc, char* argv[]) {
   BenchExpr Expr;
   map<string,Tensor<double>> exprOperands;
   int repeat=1;
+  int size = 100;
   map<string,string> inputFilenames;
   taco::util::TimeResults timevalue;
   map<string,bool> products;
@@ -147,6 +155,12 @@ int main(int argc, char* argv[]) {
           Expr=RESIDUAL;
         else if(Expression==5)
           Expr=SDDMM;
+        else if(Expression==6)
+          Expr=SparsitySpMV;
+        else if(Expression==7)
+          Expr=SparsityTTV;
+        else if(Expression==8)
+          Expr=SparsitySpMDM;
         else
           return reportError("Incorrect Expression descriptor", 3);
       }
@@ -176,9 +190,17 @@ int main(int argc, char* argv[]) {
         products.at(descriptor[i])=true;
       }
     }
-    if ("-r" == argName) {
+    else if ("-r" == argName) {
       try {
         repeat=stoi(argValue);
+      }
+      catch (...) {
+        return reportError("Incorrect repeat descriptor", 3);
+      }
+    }
+    if ("-s" == argName) {
+      try {
+        size=stoi(argValue);
       }
       catch (...) {
         return reportError("Incorrect repeat descriptor", 3);
@@ -209,11 +231,10 @@ int main(int argc, char* argv[]) {
   CHECK_PRODUCT("YOURS");
 #endif
 
-  // taco Formats
+  // taco Formats and sparsities
   map<string,Format> TacoFormats;
-  TacoFormats.insert({"CSR",CSR});
-  TacoFormats.insert({"CSC",CSC});
-  //TacoFormats.insert({"Sparse,Sparse",Format({Sparse,Sparse})});
+  std::vector<double> Sparsities {0.95,0.9,0.85,0.8,0.75,0.7,0.65,0.6,0.55,0.5,
+                                  0.4,0.3,0.2,0.1,0.05,0.01,0.001};
 
   switch(Expr) {
     case SpMV: {
@@ -229,8 +250,11 @@ int main(int argc, char* argv[]) {
       yRef.assemble();
       yRef.compute();
 
+      TacoFormats.insert({"CSR",CSR});
+      TacoFormats.insert({"CSC",CSC});
+      TacoFormats.insert({"Sparse,Sparse",Format({Sparse,Sparse})});
       for (auto& formats:TacoFormats) {
-        cout << "y(i) = A(i,j)*x(j) -- " << formats.first <<endl;
+        cout << endl << "y(i) = A(i,j)*x(j) -- " << formats.first <<endl;
         Tensor<double> A=read(inputFilenames.at("A"),formats.second,true);
         Tensor<double> y({rows}, Dense);
 
@@ -260,8 +284,11 @@ int main(int argc, char* argv[]) {
       ARef.assemble();
       ARef.compute();
 
+      TacoFormats.insert({"CSR",CSR});
+      TacoFormats.insert({"CSC",CSC});
+      TacoFormats.insert({"Sparse,Sparse",Format({Sparse,Sparse})});
       for (auto& formats:TacoFormats) {
-        cout << "A(i,j) = B(i,j) + C(i,j) + D(i,j) -- " << formats.first <<endl;
+        cout << endl << "A(i,j) = B(i,j) + C(i,j) + D(i,j) -- " << formats.first <<endl;
         B=read(inputFilenames.at("B"),formats.second,true);
         C=read(inputFilenames.at("C"),formats.second,true);
         D=read(inputFilenames.at("D"),formats.second,true);
@@ -308,7 +335,7 @@ int main(int argc, char* argv[]) {
         ((double*)(Tbeta.getStorage().getValues().getData()))[0] = 1.0;
         A=read(inputFilenames.at("A"),CSR,true);
         yRef(i) = z(i) -(A(i,j) * x(j)) ;
-        cout << "y= b - Ax -- " << endl;
+        cout << endl << "y= b - Ax -- " << endl;
       }
       else {
         yRef(i) = Talpha() * (A(j,i) * x(j)) + Tbeta() * z(i);
@@ -341,7 +368,7 @@ int main(int argc, char* argv[]) {
 
       IndexVar i, j, k;
       ARef(i,k) = C(i,j)*D(j,k)*B(i,k);
-      std::cout << "A=B o (CxD) -- " << endl;
+      cout << endl << "A=B o (CxD) -- " << endl;
 
       TACO_BENCH(ARef.compile();, "Compile",1,timevalue,false)
       TACO_BENCH(ARef.assemble();,"Assemble",1,timevalue,false)
@@ -352,6 +379,217 @@ int main(int argc, char* argv[]) {
       exprOperands.insert({"C",C});
       exprOperands.insert({"D",D});
       break;
+    }
+    case SparsitySpMV: {
+      int rows,cols;
+      rows = size;
+      cols = size;
+      Tensor<double> x({cols}, Dense);
+      util::fillTensor(x,util::FillMethod::Dense);
+      Tensor<double> yRef({rows}, Dense);
+      Tensor<double> A({rows,cols}, Format({Dense,Dense}));
+      util::fillMatrix(A,util::FillMethod::Dense,1.0);
+      Tensor<double> Talpha("alpha");
+      Tensor<double> Tbeta("beta");
+      Talpha.insert({}, 42.0);
+      Tbeta.insert({}, 24.0);
+      Talpha.pack();
+      Tbeta.pack();
+      Tensor<double> z({rows}, Dense);
+      util::fillTensor(z,util::FillMethod::Dense);
+      IndexVar i, j;
+      yRef(i) = Talpha() * A(i,j) * x(j) + Tbeta()*z(i);
+      yRef.compile();
+      yRef.assemble();
+      TACO_BENCH(yRef.compute();, "Compute",repeat, timevalue, true)
+
+      TacoFormats.insert({"CSR",CSR});
+      TacoFormats.insert({"Sparse,Sparse",Format({Sparse,Sparse})});
+      TacoFormats.insert({"Sparse,Dense",Format({Sparse,Dense})});
+      for (auto& formats:TacoFormats) {
+        cout << endl << "y(i) = alpha*A(i,j)*x(j) + beta*z(i) -- " << formats.first << " -- DENSE" << endl;
+        Tensor<double> B({rows,cols},formats.second);
+        for (auto& value : iterate<double>(A)) {
+          B.insert({value.first.at(0),value.first.at(1)},value.second);
+        }
+        B.pack();
+        Tensor<double> y({rows}, Dense);
+
+        y(i) = Talpha() * B(i,j) * x(j) + Tbeta()*z(i);
+
+        TACO_BENCH(y.compile();, "Compile",1,timevalue,false)
+        TACO_BENCH(y.assemble();,"Assemble",1,timevalue,false)
+        TACO_BENCH(y.compute();, "Compute",repeat, timevalue, true)
+
+        validate("taco", y, yRef);
+      }
+
+      for (auto sparsity:Sparsities) {
+        Tensor<double> B({rows,cols},CSR);
+        util::fillMatrix(B,util::FillMethod::HyperSpace,sparsity);
+        for (auto& formats:TacoFormats) {
+          cout << endl << "y(i) = alpha*A(i,j)*x(j) + beta*z(i) -- " << formats.first << " -- " << sparsity << endl;
+          Tensor<double> Btmp({rows,cols},formats.second);
+          if (formats.second==CSR) {
+            Btmp = B;
+          }
+          else {
+            for (auto& value : iterate<double>(B)) {
+              Btmp.insert({value.first.at(0),value.first.at(1)},value.second);
+            }
+            Btmp.pack();
+          }
+          Tensor<double> y({rows}, Dense);
+
+          y(i) = Talpha() * Btmp(i,j) * x(j) + Tbeta()*z(i);
+
+          TACO_BENCH(y.compile();, "Compile",1,timevalue,false)
+          TACO_BENCH(y.assemble();,"Assemble",1,timevalue,false)
+          TACO_BENCH(y.compute();, "Compute",repeat, timevalue, true)
+        }
+      }
+      exprOperands.insert({"yRef",yRef});
+      exprOperands.insert({"A",A});
+      exprOperands.insert({"x",x});
+      break;
+    }
+    case SparsityTTV: {
+      int dim1,dim2,dim3;
+      dim1=size;
+      dim2=size;
+      dim3=size;
+      Tensor<double> x({dim3}, Dense);
+      util::fillTensor(x,util::FillMethod::Dense);
+      Tensor<double> ARef({dim1,dim2}, Format({Dense,Dense}));
+      Tensor<double> B({dim1,dim2,dim3}, Format({Dense,Dense,Dense}));
+      util::fillTensor(B,util::FillMethod::Dense,1.0);
+      IndexVar i, j, k;
+      ARef(i,j) = B(i,j,k) * x(k);
+      ARef.compile();
+      ARef.assemble();
+      TACO_BENCH(ARef.compute();, "Compute",repeat, timevalue, true)
+
+      TacoFormats.insert({"Sparse,Sparse,Sparse",Format({Sparse,Sparse,Sparse})});
+      TacoFormats.insert({"Sparse,Sparse,Dense",Format({Sparse,Sparse,Dense})});
+      TacoFormats.insert({"Sparse,Dense,Sparse",Format({Sparse,Dense,Sparse})});
+      TacoFormats.insert({"Sparse,Dense,Dense",Format({Sparse,Dense,Dense})});
+      TacoFormats.insert({"Dense,Sparse,Sparse",Format({Dense,Sparse,Sparse})});
+      TacoFormats.insert({"Dense,Sparse,Dense",Format({Dense,Sparse,Dense})});
+      TacoFormats.insert({"Dense,Dense,Sparse",Format({Dense,Dense,Sparse})});
+
+      for (auto& formats:TacoFormats) {
+        cout << endl << "A(i,j) = B(i,j,k)*x(k) -- " << formats.first << " -- DENSE" << endl;
+        Tensor<double> Btmp({dim1,dim2,dim3},formats.second);
+        for (auto& value : iterate<double>(B)) {
+          Btmp.insert({value.first.at(0),value.first.at(1),value.first.at(2)},value.second);
+        }
+        Btmp.pack();
+        Tensor<double> A({dim1,dim2}, Format({Dense,Dense}));
+
+        A(i,j) = Btmp(i,j,k) * x(k);
+
+        TACO_BENCH(A.compile();, "Compile",1,timevalue,false)
+        TACO_BENCH(A.assemble();,"Assemble",1,timevalue,false)
+        TACO_BENCH(A.compute();, "Compute",repeat, timevalue, true)
+
+        validate("taco", A, ARef);
+      }
+
+      for (auto sparsity:Sparsities) {
+        Tensor<double> Bgen({dim1,dim2,dim3},Format({Dense,Dense,Sparse}));
+        util::fillTensor(Bgen,util::FillMethod::HyperSpace,sparsity);
+        for (auto& formats:TacoFormats) {
+          cout << endl << "A(i,j) = B(i,j,k)*x(k) -- " << formats.first << " -- " << sparsity << endl;
+          Tensor<double> A({dim1,dim2}, Format({Dense,Dense}));
+          Tensor<double> Btmp({dim1,dim2,dim3},formats.second);
+          if (formats.first=="Dense,Dense,Sparse") {
+            Btmp = Bgen;
+          }
+          else {
+            for (auto& value : iterate<double>(Bgen)) {
+              Btmp.insert({value.first.at(0),value.first.at(1),value.first.at(2)},value.second);
+            }
+            Btmp.pack();
+          }
+
+          A(i,j) = Btmp(i,j,k) * x(k);
+
+          TACO_BENCH(A.compile();, "Compile",1,timevalue,false)
+          TACO_BENCH(A.assemble();,"Assemble",1,timevalue,false)
+          TACO_BENCH(A.compute();, "Compute",repeat, timevalue, true)
+        }
+      }
+      exprOperands.insert({"ARef",ARef});
+      exprOperands.insert({"B",B});
+      exprOperands.insert({"x",x});
+      break;
+    }
+    case SparsitySpMDM: {
+      int rows,cols;
+      rows = size;
+      cols = size;
+      Tensor<double> B({cols, rows}, Format({Dense,Dense}));
+      util::fillMatrix(B,util::FillMethod::Dense,1.0);
+      Tensor<double> CRef({rows, cols}, Format({Dense,Dense}));
+      Tensor<double> A({rows,cols}, Format({Dense,Dense}));
+      util::fillMatrix(A,util::FillMethod::Dense,1.0);
+
+      IndexVar i, j, k;
+      CRef(i, j) = A(i, k) * B(k, j);
+      CRef.compile();
+      CRef.assemble();
+      TACO_BENCH(CRef.compute();, "Compute",repeat, timevalue, true)
+
+      TacoFormats.insert({"CSR",CSR});
+      TacoFormats.insert({"Sparse,Sparse",Format({Sparse,Sparse})});
+      TacoFormats.insert({"Sparse,Dense",Format({Sparse,Dense})});
+      for (auto& formats:TacoFormats) {
+        cout << endl << "C(i, j) = A(i, k) * B(k, j) -- " << formats.first << " -- DENSE" << endl;
+        Tensor<double> A2({rows,cols},formats.second);
+        for (auto& value : iterate<double>(A)) {
+          A2.insert({value.first.at(0),value.first.at(1)},value.second);
+        }
+        A2.pack();
+        Tensor<double> C({rows,cols}, Format({Dense,Dense}));
+
+        C(i, j) = A2(i, k) * B(k, j);
+
+        TACO_BENCH(C.compile();, "Compile",1,timevalue,false)
+        TACO_BENCH(C.assemble();,"Assemble",1,timevalue,false)
+        TACO_BENCH(C.compute();, "Compute",repeat, timevalue, true)
+
+        validate("taco", C, CRef);
+      }
+
+      for (auto sparsity:Sparsities) {
+        Tensor<double> A2({rows,cols},CSR);
+        util::fillMatrix(A2,util::FillMethod::HyperSpace,sparsity);
+        for (auto& formats:TacoFormats) {
+          cout << endl << "C(i, j) = A(i, k) * B(k, j) -- " << formats.first << " -- " << sparsity << endl;
+          Tensor<double> A2tmp({rows,cols},formats.second);
+          if (formats.second==CSR) {
+            A2tmp = A2;
+          }
+          else {
+            for (auto& value : iterate<double>(A2)) {
+              A2tmp.insert({value.first.at(0),value.first.at(1)},value.second);
+            }
+            A2tmp.pack();
+          }
+          Tensor<double> C({rows,cols}, Format({Dense,Dense}));
+
+          C(i, j) = A2tmp(i, k) * B(k, j);
+          
+          TACO_BENCH(C.compile();, "Compile",1,timevalue,false)
+          TACO_BENCH(C.assemble();,"Assemble",1,timevalue,false)
+          TACO_BENCH(C.compute();, "Compute",repeat, timevalue, true)
+        }
+      }
+      exprOperands.insert({"CRef",CRef});
+      exprOperands.insert({"A",A});
+      exprOperands.insert({"B",B});
+      break;
+
     }
     default: {
       return reportError("Unknown Expression", 3);

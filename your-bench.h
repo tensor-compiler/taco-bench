@@ -3,16 +3,16 @@
 using namespace taco;
 using namespace std;
 
-#ifdef YOURS
-// Add YOURS include here
+#ifdef YOUR
+// Add your include here
 // ...
 
-  void exprToYOURS(BenchExpr Expr, map<string,Tensor<double>> exprOperands,int repeat, taco::util::TimeResults timevalue) {
+  void exprToYour(BenchExpr Expr, map<string,Tensor<double>> exprOperands,int repeat, taco::util::TimeResults timevalue) {
     switch(Expr) {
       case SpMV:
-        // Add code for YOURS implementation of SpMV
+        // Add code for your implementation of SpMV
         // ..
-        // Use TACO_BENCH macro to benchmark YOURS implementation
+        // Use TACO_BENCH macro to benchmark your implementation
         // ..
         // Use validate method to compare against expected results
         // ..
@@ -21,7 +21,7 @@ using namespace std;
       case RESIDUAL:
       case SDDMM:
       default:
-        cout << " !! Expression not implemented for YOURS" << endl;
+        cout << " !! Expression not implemented for your" << endl;
         break;
     }
   }

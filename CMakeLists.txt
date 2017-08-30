@@ -1,9 +1,10 @@
 cmake_minimum_required(VERSION 2.8)
-project(tacoBench)
+project(taco-bench)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -std=c++11")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -ffast-math -std=c++11")
 file(GLOB SOURCE_CODE ${PROJECT_SOURCE_DIR}/*.cpp)
-add_executable(${PROJECT_NAME} ${SOURCE_CODE})
+file(GLOB HEADERS ${PROJECT_SOURCE_DIR}/*.h)
+add_executable(${PROJECT_NAME} ${SOURCE_CODE} ${HEADERS})
 
 # To find taco
 if (NOT DEFINED ENV{TACO_INCLUDE_DIR} OR NOT DEFINED ENV{TACO_LIBRARY_DIR})
@@ -18,11 +19,11 @@ target_link_libraries(${PROJECT_NAME} LINK_PUBLIC ${taco})
 include_directories(${TACO_INCLUDE_DIR})
 
 # Eigen
-if (NOT DEFINED ENV{EIGEN_INCLUDE_DIR})
+if (NOT DEFINED ENV{EIGEN_DIR})
   message(WARNING "Eigen not found and will not be used")
 else()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DEIGEN -Wno-deprecated-declarations")    
-  include_directories($ENV{EIGEN_INCLUDE_DIR})
+  include_directories($ENV{EIGEN_DIR})
 endif ()
 
 # GMM
@@ -76,12 +77,12 @@ else()
   target_link_libraries(${PROJECT_NAME} "-L${MKLROOT}/lib/intel64 -Wl,--no-as-needed -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread -lm -ldl")
 endif ()
 
-# YOURS project
-if (NOT DEFINED ENV{YOURS_INCLUDE_DIR})
-  message(WARNING "YOURS not found and will not be used")
+# Your project
+if ((NOT DEFINED ENV{YOUR_INCLUDE_DIR}) OR (NOT DEFINED ENV{YOUR_LIBRARY_DIR}))
+  message(WARNING "Your not found and will not be used")
 else()
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DYOURS ")    
-# Add here dependancies to YOURS library/code
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DYOUR ")
+# Add here dependencies to your library/code
 # ...
 endif ()
 

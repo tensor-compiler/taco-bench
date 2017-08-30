@@ -5,21 +5,21 @@ using namespace taco;
 using namespace std;
 
 // MACRO to benchmark some CODE with REPEAT times and COLD/WARM cache
-#define TACO_BENCH(CODE, NAME, REPEAT, TIMER, COLD) {           \
-    TACO_TIME_REPEAT(CODE, REPEAT, TIMER, COLD);                \
-    cout << NAME << " time (ms)" << endl << TIMER << endl;      \
+#define TACO_BENCH(CODE, NAME, REPEAT, TIMER, COLD) {               \
+    TACO_TIME_REPEAT(CODE, REPEAT, TIMER, COLD);                    \
+    cout << NAME << " time (ms)" << endl << TIMER << endl;  \
 }
 
 #define CHECK_PRODUCT(NAME) {                                   \
     if (products.at(NAME)) {                                    \
-      cout << "tacoBench was not compiled with "<< NAME << " and will not use it" << endl; \
+      cout << "taco-bench was not compiled with "<< NAME << " and will not use it" << endl; \
       products.at(NAME)=false;                                  \
     }                                                           \
 }
 
 
 // Enum of possible expressions to Benchmark
-enum BenchExpr {SpMV, PLUS3, MATTRANSMUL, RESIDUAL, SDDMM};
+enum BenchExpr {SpMV, PLUS3, MATTRANSMUL, RESIDUAL, SDDMM, SparsitySpMV, SparsityTTV, SparsitySpMDM};
 
 // Compare two tensors of different formats
 bool compare(const Tensor<double>&Dst, const Tensor<double>&Ref) {
