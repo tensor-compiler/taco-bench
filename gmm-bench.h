@@ -77,7 +77,8 @@ typedef gmm::linalg_traits<gmm::wsvector<double>>::const_iterator GmmIterator;
         Tensor<double> A_gmm({rows,cols}, CSC);
         GMMTotaco(Agmm,A_gmm);
 
-        validate("GMM", A_gmm, exprOperands.at("ARef"));
+        // comment out for now as Gmm++ and taco treat physical zeros differently
+        // validate("GMM", A_gmm, exprOperands.at("ARef"));
         break;
       }
       case MATTRANSMUL: {
