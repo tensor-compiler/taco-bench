@@ -278,25 +278,30 @@ int main(int argc, char* argv[]) {
       Tensor<double> C=read(inputFilenames.at("C"),CSC,true);
       Tensor<double> D=read(inputFilenames.at("D"),CSC,true);
       Tensor<double> ARef("ARef",{rows,cols},CSC);
+      B.setName("B");
+      C.setName("C");
+      D.setName("D");
       IndexVar i, j;
       ARef(i,j) = B(i,j) + C(i,j) + D(i,j);
-      ARef.compile();
+      ARef.compile(true);
       ARef.assemble();
       ARef.compute();
 
       TacoFormats.insert({"CSR",CSR});
       TacoFormats.insert({"CSC",CSC});
-      TacoFormats.insert({"Sparse,Sparse",Format({Sparse,Sparse})});
       for (auto& formats:TacoFormats) {
         cout << endl << "A(i,j) = B(i,j) + C(i,j) + D(i,j) -- " << formats.first <<endl;
         B=read(inputFilenames.at("B"),formats.second,true);
         C=read(inputFilenames.at("C"),formats.second,true);
         D=read(inputFilenames.at("D"),formats.second,true);
+        B.setName("B");
+        C.setName("C");
+        D.setName("D");
         Tensor<double> A({rows,cols},formats.second);
 
         A(i,j) = B(i,j) + C(i,j) + D(i,j);
 
-        TACO_BENCH(A.compile();, "Compile",1,timevalue,false)
+        TACO_BENCH(A.compile(true);, "Compile",1,timevalue,false)
         TACO_BENCH(A.assemble();,"Assemble",1,timevalue,false)
         TACO_BENCH(A.compute();, "Compute",repeat, timevalue, true)
 
