@@ -432,7 +432,7 @@ int main(int argc, char* argv[]) {
 
       for (auto sparsity:Sparsities) {
         Tensor<double> B({rows,cols},DCSR);
-        util::fillMatrix(B,util::FillMethod::HyperSpace,sparsity);
+        util::fillMatrix(B,util::FillMethod::Random,sparsity);
         for (auto& formats:TacoFormats) {
           cout << endl << "y(i) = alpha*A(i,j)*x(j) + beta*z(i) -- " << formats.first << " -- " << sparsity << endl;
           Tensor<double> Btmp({rows,cols},formats.second);
@@ -504,7 +504,7 @@ int main(int argc, char* argv[]) {
 
       for (auto sparsity:Sparsities) {
         Tensor<double> Bgen({dim1,dim2,dim3},Format({Sparse,Sparse,Sparse}));
-        util::fillTensor(Bgen,util::FillMethod::HyperSpace,sparsity);
+        util::fillTensor(Bgen,util::FillMethod::Random,sparsity);
         for (auto& formats:TacoFormats) {
           cout << endl << "A(i,j) = B(i,j,k)*x(k) -- " << formats.first << " -- " << sparsity << endl;
           Tensor<double> A({dim1,dim2}, Format({Dense,Dense}));
@@ -570,7 +570,7 @@ int main(int argc, char* argv[]) {
 
       for (auto sparsity:Sparsities) {
         Tensor<double> A2({rows,cols},CSR);
-        util::fillMatrix(A2,util::FillMethod::HyperSpace,sparsity);
+        util::fillMatrix(A2,util::FillMethod::Random,sparsity);
         for (auto& formats:TacoFormats) {
           cout << endl << "C(i, j) = A(i, k) * B(k, j) -- " << formats.first << " -- " << sparsity << endl;
           Tensor<double> A2tmp({rows,cols},formats.second);
