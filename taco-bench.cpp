@@ -406,11 +406,12 @@ int main(int argc, char* argv[]) {
       yRef(i) = Talpha() * A(i,j) * x(j) + Tbeta()*z(i);
       yRef.compile();
       yRef.assemble();
+      cout << endl << "y(i) = alpha*A(i,j)*x(j) + beta*z(i) -- Dense,Dense -- DENSE" << endl;
       TACO_BENCH(yRef.compute();, "Compute",repeat, timevalue, true)
 
-      TacoFormats.insert({"CSR",CSR});
+      // TacoFormats.insert({"CSR",CSR});
+      // TacoFormats.insert({"Sparse,Dense",Format({Sparse,Dense})});
       TacoFormats.insert({"Sparse,Sparse",Format({Sparse,Sparse})});
-      TacoFormats.insert({"Sparse,Dense",Format({Sparse,Dense})});
       for (auto& formats:TacoFormats) {
         cout << endl << "y(i) = alpha*A(i,j)*x(j) + beta*z(i) -- " << formats.first << " -- DENSE" << endl;
         Tensor<double> B({rows,cols},formats.second);
@@ -430,12 +431,12 @@ int main(int argc, char* argv[]) {
       }
 
       for (auto sparsity:Sparsities) {
-        Tensor<double> B({rows,cols},CSR);
+        Tensor<double> B({rows,cols},DCSR);
         util::fillMatrix(B,util::FillMethod::HyperSpace,sparsity);
         for (auto& formats:TacoFormats) {
           cout << endl << "y(i) = alpha*A(i,j)*x(j) + beta*z(i) -- " << formats.first << " -- " << sparsity << endl;
           Tensor<double> Btmp({rows,cols},formats.second);
-          if (formats.second==CSR) {
+          if (formats.second==B.getFormat()) {
             Btmp = B;
           }
           else {
@@ -472,15 +473,16 @@ int main(int argc, char* argv[]) {
       ARef(i,j) = B(i,j,k) * x(k);
       ARef.compile();
       ARef.assemble();
+      cout << endl << "A(i,j) = B(i,j,k)*x(k) -- Dense,Dense,Dense -- DENSE" << endl;
       TACO_BENCH(ARef.compute();, "Compute",repeat, timevalue, true)
 
       TacoFormats.insert({"Sparse,Sparse,Sparse",Format({Sparse,Sparse,Sparse})});
-      TacoFormats.insert({"Sparse,Sparse,Dense",Format({Sparse,Sparse,Dense})});
-      TacoFormats.insert({"Sparse,Dense,Sparse",Format({Sparse,Dense,Sparse})});
-      TacoFormats.insert({"Sparse,Dense,Dense",Format({Sparse,Dense,Dense})});
-      TacoFormats.insert({"Dense,Sparse,Sparse",Format({Dense,Sparse,Sparse})});
-      TacoFormats.insert({"Dense,Sparse,Dense",Format({Dense,Sparse,Dense})});
-      TacoFormats.insert({"Dense,Dense,Sparse",Format({Dense,Dense,Sparse})});
+      // TacoFormats.insert({"Sparse,Sparse,Dense",Format({Sparse,Sparse,Dense})});
+      // TacoFormats.insert({"Sparse,Dense,Sparse",Format({Sparse,Dense,Sparse})});
+      // TacoFormats.insert({"Sparse,Dense,Dense",Format({Sparse,Dense,Dense})});
+      // TacoFormats.insert({"Dense,Sparse,Sparse",Format({Dense,Sparse,Sparse})});
+      // TacoFormats.insert({"Dense,Sparse,Dense",Format({Dense,Sparse,Dense})});
+      // TacoFormats.insert({"Dense,Dense,Sparse",Format({Dense,Dense,Sparse})});
 
       for (auto& formats:TacoFormats) {
         cout << endl << "A(i,j) = B(i,j,k)*x(k) -- " << formats.first << " -- DENSE" << endl;
@@ -501,13 +503,13 @@ int main(int argc, char* argv[]) {
       }
 
       for (auto sparsity:Sparsities) {
-        Tensor<double> Bgen({dim1,dim2,dim3},Format({Dense,Dense,Sparse}));
+        Tensor<double> Bgen({dim1,dim2,dim3},Format({Sparse,Sparse,Sparse}));
         util::fillTensor(Bgen,util::FillMethod::HyperSpace,sparsity);
         for (auto& formats:TacoFormats) {
           cout << endl << "A(i,j) = B(i,j,k)*x(k) -- " << formats.first << " -- " << sparsity << endl;
           Tensor<double> A({dim1,dim2}, Format({Dense,Dense}));
           Tensor<double> Btmp({dim1,dim2,dim3},formats.second);
-          if (formats.first=="Dense,Dense,Sparse") {
+          if (formats.second == Bgen.getFormat()) {
             Btmp = Bgen;
           }
           else {
